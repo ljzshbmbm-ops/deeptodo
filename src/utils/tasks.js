@@ -1,5 +1,7 @@
 export const CATEGORIES = ["Personal", "Work", "Ideas", "Focus"];
 
+export const VIEW_TODAY = "Today";
+
 export const PRIORITIES = ["high", "medium", "low"];
 
 export const PRIORITY_LABELS = {
@@ -31,6 +33,10 @@ export const EMPTY_GUIDES = {
   Focus: {
     title: "设定专注目标",
     desc: "只放一件此刻最重要的事，配合番茄钟，进入深度心流状态。",
+  },
+  Today: {
+    title: "今日暂无到期任务",
+    desc: "为任务设置截止日期为今天，它们会出现在这里。也可在下方快速添加。",
   },
 };
 
@@ -159,6 +165,97 @@ export function getMotivation(stats) {
     stats.dueToday || stats.totalActive,
     stats.overdue
   );
+}
+
+export function sortTasks(list) {
+  const incomplete = list.filter((t) => !t.completed);
+  const completed = list.filter((t) => t.completed);
+  return [...incomplete, ...completed];
+}
+
+export function getTodayTasks(todos) {
+  const today = todayString();
+
+  return CATEGORIES.flatMap((cat) =>
+    todos[cat]
+      .filter((t) => t.dueDate === today)
+      .map((task) => ({ task, category: cat }))
+  ).sort((a, b) => {
+    if (a.task.completed !== b.task.completed) {
+      return a.task.completed ? 1 : -1;
+    }
+    const order = { high: 0, medium: 1, low: 2 };
+    return (
+      (order[a.task.priority] ?? 1) - (order[b.task.priority] ?? 1)
+    );
+  });
+}
+
+export function getSmartSuggestions(todos) {
+  const today = todayString();
+  const all = CATEGORIES.flatMap((cat) =>
+    todos[cat].map((t) => ({ ...t, category: cat }))
+  );
+  const active = all.filter((t) => !t.completed);
+  const suggestions = [];
+
+  const highPending = active.filter((t) => t.priority === "high");
+  const highToday = highPending.filter((t) => t.dueDate === today);
+
+  if (highToday.length > 0) {
+    suggestions.push(
+      `今日还有 ${highToday.length} 件高优先级任务未完成，建议优先处理。`
+    );
+  } else if (highPending.length > 0) {
+    suggestions.push(
+      `共有 ${highPending.length} 件高优先级任务待办，可安排一段专注时间攻克。`
+    );
+  }
+
+  const overdue = active.filter(
+    (t) => getDueStatus(t.dueDate) === "overdue"
+  );
+  if (overdue.length > 0) {
+    suggestions.push(
+      `${overdue.length} 项任务已过期，拖越久压力越大，今天先清掉一件吧。`
+    );
+  }
+
+  const dueSoon = active.filter((t) => {
+    const days = daysUntil(t.dueDate);
+    return days !== null && days > 0 && days <= 3;
+  });
+  if (dueSoon.length > 0) {
+    suggestions.push(
+      `${dueSoon.length} 项任务将在 3 天内到期，提前规划可避免手忙脚乱。`
+    );
+  }
+
+  const pendingToday = active.filter((t) => t.dueDate === today);
+  if (pendingToday.length > 0 && !suggestions.some((s) => s.includes("今日"))) {
+    suggestions.push(
+      `今日到期 ${pendingToday.length} 项任务，按优先级逐个勾选会更有成就感。`
+    );
+  }
+
+  const noDue = active.filter((t) => !t.dueDate);
+  if (noDue.length >= 3) {
+    suggestions.push(
+      `${noDue.length} 项任务未设截止日期，加上截止日更容易推进。`
+    );
+  }
+
+  if (active.length === 0) {
+    suggestions.push("所有任务都已完成，太棒了！适合休息或规划明天。");
+  } else if (suggestions.length === 0) {
+    suggestions.push("节奏不错，保持专注，一次只做一件事。");
+  }
+
+  return suggestions.slice(0, 4);
+}
+
+export function isValidView(view) {
+  return view === VIEW_TODAY || CATEGORIES.includes(view);
 }
 
 export function playPomodoroSound() {

@@ -25,6 +25,7 @@ import {
 
 import {
   CATEGORIES,
+  VIEW_TODAY,
   PRIORITY_LABELS,
   EMPTY_GUIDES,
   loadTodos,
@@ -33,7 +34,10 @@ import {
   getDueStatus,
   formatDueLabel,
   getTodayStats,
-  getMotivation,
+  getSmartSuggestions,
+  sortTasks,
+  getTodayTasks,
+  isValidView,
   playPomodoroSound,
   notifyPomodoroDone,
 } from "./utils/tasks";
@@ -45,7 +49,128 @@ const CATEGORY_META = {
   Work: { icon: FiBriefcase, desc: "职业项目与协作任务" },
   Ideas: { icon: FiZap, desc: "灵感草稿与创意备忘" },
   Focus: { icon: FiTarget, desc: "深度专注与单一目标" },
+  Today: { icon: FiCalendar, desc: "汇总所有分类中今天截止的任务" },
 };
+
+const FOCUS_QUOTE = "Wherever you are, be all there.";
+
+function BrandLogo() {
+  return (
+    <div className="logo-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient
+            id="brand-grad"
+            x1="4"
+            y1="2"
+            x2="28"
+            y2="30"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop offset="0%" stopColor="#a78bfa" />
+            <stop offset="45%" stopColor="#5e6ad2" />
+            <stop offset="100%" stopColor="#4338ca" />
+          </linearGradient>
+          <linearGradient
+            id="brand-shine"
+            x1="16"
+            y1="6"
+            x2="16"
+            y2="26"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+          </linearGradient>
+          <filter
+            id="brand-glow"
+            x="-20%"
+            y="-20%"
+            width="140%"
+            height="140%"
+          >
+            <feGaussianBlur stdDeviation="1.2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <rect
+          x="1.5"
+          y="1.5"
+          width="29"
+          height="29"
+          rx="9"
+          fill="url(#brand-grad)"
+          fillOpacity="0.18"
+        />
+        <rect
+          x="1.5"
+          y="1.5"
+          width="29"
+          height="29"
+          rx="9"
+          stroke="url(#brand-grad)"
+          strokeWidth="1.25"
+          filter="url(#brand-glow)"
+        />
+        <path
+          d="M16 7.5L23.5 13v6L16 24.5L8.5 19v-6L16 7.5Z"
+          stroke="url(#brand-grad)"
+          strokeWidth="1.35"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M16 11.5v5.5M13.2 14.2h5.6"
+          stroke="url(#brand-shine)"
+          strokeWidth="1.1"
+          strokeLinecap="round"
+        />
+        <circle cx="16" cy="14.2" r="2.2" fill="url(#brand-grad)" />
+        <circle cx="16" cy="14" r="0.9" fill="#fff" fillOpacity="0.92" />
+      </svg>
+    </div>
+  );
+}
+
+function ProgressRing({ value, size = 92 }) {
+  const stroke = 6;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (value / 100) * circumference;
+
+  return (
+    <div className="progress-ring" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          className="ring-track"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={stroke}
+        />
+        <motion.circle
+          className="ring-progress"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        />
+      </svg>
+      <div className="ring-label">
+        <strong>{value}%</strong>
+        <span>总进度</span>
+      </div>
+    </div>
+  );
+}
 
 function TaskRow({
   task,
@@ -178,7 +303,7 @@ function TaskRow({
           >
             <textarea
               className="task-notes-input"
-              placeholder="添加备注、链接或详细说明…"
+              placeholder="添加备注或任务详情…"
               value={task.notes || ""}
               onChange={(e) => onUpdateNotes(task.id, e.target.value)}
             />
@@ -213,7 +338,7 @@ function App() {
   );
   const [category, setCategory] = useState(() => {
     const saved = localStorage.getItem("deepTodoCategory");
-    return CATEGORIES.includes(saved) ? saved : "Personal";
+    return isValidView(saved) ? saved : "Personal";
   });
   const [input, setInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -222,16 +347,26 @@ function App() {
   const [dragging, setDragging] = useState(null);
   const [dropCategory, setDropCategory] = useState(null);
   const [toast, setToast] = useState(null);
+  const [celebrateOpen, setCelebrateOpen] = useState(false);
 
   const [todos, setTodos] = useState(loadTodos);
   const [seconds, setSeconds] = useState(1500);
   const [timerRunning, setTimerRunning] = useState(false);
 
   const inputRef = useRef();
+  const mainScrollRef = useRef(null);
   const pomodoroFiredRef = useRef(false);
 
-  const currentTodos = todos[category];
-  const categoryMeta = CATEGORY_META[category];
+  const isTodayView = category === VIEW_TODAY;
+
+  const sortedCategoryTodos = useMemo(
+    () => (isTodayView ? [] : sortTasks(todos[category] || [])),
+    [todos, category, isTodayView]
+  );
+
+  const todayTaskList = useMemo(() => getTodayTasks(todos), [todos]);
+
+  const categoryMeta = CATEGORY_META[category] || CATEGORY_META.Personal;
   const CategoryIcon = categoryMeta.icon;
   const EmptyIcon = categoryMeta.icon;
 
@@ -254,15 +389,26 @@ function App() {
 
   const displayList = isSearching
     ? searchResults
-    : currentTodos.map((t) => ({ task: t, category }));
+    : isTodayView
+      ? todayTaskList
+      : sortedCategoryTodos.map((t) => ({ task: t, category }));
 
-  const categoryDone = useMemo(
-    () => currentTodos.filter((t) => t.completed).length,
-    [currentTodos]
-  );
+  const listCount = isTodayView
+    ? todayTaskList.length
+    : sortedCategoryTodos.length;
+
+  const categoryDone = useMemo(() => {
+    if (isTodayView) {
+      return todayTaskList.filter((x) => x.task.completed).length;
+    }
+    return sortedCategoryTodos.filter((t) => t.completed).length;
+  }, [isTodayView, todayTaskList, sortedCategoryTodos]);
 
   const todayStats = useMemo(() => getTodayStats(todos), [todos]);
-  const motivation = useMemo(() => getMotivation(todayStats), [todayStats]);
+  const smartSuggestions = useMemo(
+    () => getSmartSuggestions(todos),
+    [todos]
+  );
 
   const updateCategory = (cat, updater) => {
     setTodos((prev) => ({
@@ -309,7 +455,7 @@ function App() {
     pomodoroFiredRef.current = true;
     playPomodoroSound();
     notifyPomodoroDone();
-    setToast("番茄钟时间到，休息一下吧");
+    setCelebrateOpen(true);
     setSeconds(1500);
   }, [seconds, timerRunning]);
 
@@ -335,36 +481,58 @@ function App() {
   const addTask = () => {
     if (!input.trim()) return;
 
+    const targetCategory = isTodayView ? "Personal" : category;
+
     const newTask = normalizeTask({
       id: Date.now(),
       text: input,
       completed: false,
       priority: "medium",
-      dueDate: null,
+      dueDate: isTodayView ? todayString() : null,
       notes: "",
     });
 
-    updateCategory(category, (list) => [...list, newTask]);
+    updateCategory(targetCategory, (list) =>
+      sortTasks([...list, newTask])
+    );
     setInput("");
     inputRef.current?.focus();
+
+    if (isTodayView) {
+      showToast(`已添加至 Personal，截止今日`);
+    }
   };
 
-  const deleteTask = (id, cat = category) => {
-    updateCategory(cat, (list) => list.filter((t) => t.id !== id));
+  const resolveCat = (cat) => {
+    if (cat) return cat;
+    return isTodayView ? null : category;
+  };
+
+  const deleteTask = (id, cat) => {
+    const targetCat = resolveCat(cat);
+    if (!targetCat) return;
+    updateCategory(targetCat, (list) => list.filter((t) => t.id !== id));
     if (expandedId === id) setExpandedId(null);
   };
 
-  const toggleComplete = (id, cat = category) => {
-    updateCategory(cat, (list) =>
-      list.map((t) =>
-        t.id === id ? { ...t, completed: !t.completed } : t
+  const toggleComplete = (id, cat) => {
+    const targetCat = resolveCat(cat);
+    if (!targetCat) return;
+
+    updateCategory(targetCat, (list) =>
+      sortTasks(
+        list.map((t) =>
+          t.id === id ? { ...t, completed: !t.completed } : t
+        )
       )
     );
   };
 
-  const cyclePriority = (id, cat = category) => {
+  const cyclePriority = (id, cat) => {
+    const targetCat = resolveCat(cat);
+    if (!targetCat) return;
     const PRIORITIES = ["high", "medium", "low"];
-    updateCategory(cat, (list) =>
+    updateCategory(targetCat, (list) =>
       list.map((t) => {
         if (t.id !== id) return t;
         const idx = PRIORITIES.indexOf(t.priority || "medium");
@@ -376,22 +544,35 @@ function App() {
     );
   };
 
-  const updateDueDate = (id, dueDate, cat = category) => {
-    updateCategory(cat, (list) =>
-      list.map((t) => (t.id === id ? { ...t, dueDate } : t))
+  const updateDueDate = (id, dueDate, cat) => {
+    const targetCat = resolveCat(cat);
+    if (!targetCat) return;
+    updateCategory(targetCat, (list) =>
+      sortTasks(
+        list.map((t) => (t.id === id ? { ...t, dueDate } : t))
+      )
     );
   };
 
-  const updateNotes = (id, notes, cat = category) => {
-    updateCategory(cat, (list) =>
+  const updateNotes = (id, notes, cat) => {
+    const targetCat = resolveCat(cat);
+    if (!targetCat) return;
+    updateCategory(targetCat, (list) =>
       list.map((t) => (t.id === id ? { ...t, notes } : t))
     );
+  };
+
+  const scrollMainToTop = () => {
+    mainScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const switchCategory = (item) => {
     setCategory(item);
     setInput("");
     setExpandedId(null);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(scrollMainToTop);
+    });
   };
 
   const moveTaskToCategory = (taskId, fromCat, toCat) => {
@@ -435,6 +616,7 @@ function App() {
       const { id, fromCat } = JSON.parse(
         e.dataTransfer.getData("application/json")
       );
+      if (toCat === VIEW_TODAY) return;
       moveTaskToCategory(id, fromCat, toCat);
       if (toCat !== category) switchCategory(toCat);
     } catch {
@@ -474,8 +656,11 @@ function App() {
   const emptyGuide = EMPTY_GUIDES[category];
 
   const reorderCurrent = (newOrder) => {
-    if (isSearching) return;
-    setTodos((prev) => ({ ...prev, [category]: newOrder }));
+    if (isSearching || isTodayView) return;
+    setTodos((prev) => ({
+      ...prev,
+      [category]: sortTasks(newOrder),
+    }));
   };
 
   return (
@@ -484,14 +669,30 @@ function App() {
 
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="logo-mark">D</div>
+          <BrandLogo />
           <div className="logo-text">
-            <span className="logo-title">DeepTodo</span>
-            <span className="logo-sub">Workspace</span>
+            <div className="logo-title" aria-label="DeepTodo">
+              <span className="logo-deep">Deep</span>
+              <span className="logo-todo">Todo</span>
+            </div>
+            <p className="logo-sub">{FOCUS_QUOTE}</p>
           </div>
         </div>
 
         <div className="sidebar-section">
+          <span className="sidebar-label">视图</span>
+          <nav className="menu menu-today">
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              className={isTodayView ? "active" : ""}
+              onClick={() => switchCategory(VIEW_TODAY)}
+            >
+              <FiCalendar className="nav-icon" />
+              <span className="nav-label">今日</span>
+              <span className="nav-count">{todayTaskList.length}</span>
+            </motion.button>
+          </nav>
+
           <span className="sidebar-label">工作区</span>
           <nav className="menu">
             {CATEGORIES.map((item) => {
@@ -527,7 +728,7 @@ function App() {
       </aside>
 
       <main className="main">
-        <div className="main-scroll">
+        <div className="main-scroll" ref={mainScrollRef}>
           <header className="page-header">
             <div className="page-header-main">
               <div className="breadcrumb">
@@ -540,17 +741,16 @@ function App() {
             </div>
 
             <div className="header-meta">
-              <div className="stat-pill">
-                <strong>{currentTodos.length}</strong>
-                <span>当前</span>
-              </div>
-              <div className="stat-pill">
-                <strong>{categoryDone}</strong>
-                <span>已完成</span>
-              </div>
-              <div className="stat-pill">
-                <strong>{progress}%</strong>
-                <span>总进度</span>
+              <ProgressRing value={progress} />
+              <div className="header-stats-inline">
+                <div className="inline-stat">
+                  <strong>{listCount}</strong>
+                  <span>{isTodayView ? "今日" : "当前"}</span>
+                </div>
+                <div className="inline-stat">
+                  <strong>{categoryDone}</strong>
+                  <span>已完成</span>
+                </div>
               </div>
             </div>
 
@@ -601,7 +801,11 @@ function App() {
               <input
                 ref={inputRef}
                 type="text"
-                placeholder={`在 ${category} 中添加任务…`}
+                placeholder={
+                  isTodayView
+                    ? "添加今日任务（保存至 Personal · 截止今天）…"
+                    : `在 ${category} 中添加任务…`
+                }
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -629,12 +833,12 @@ function App() {
                 <span className="panel-badge">
                   {isSearching
                     ? `${displayList.length} 条匹配`
-                    : `${currentTodos.length} 项`}
+                    : `${listCount} 项`}
                 </span>
               </div>
 
               <div className="panel-body">
-                {!isSearching && currentTodos.length === 0 ? (
+                {!isSearching && listCount === 0 ? (
                   <div className="empty-state">
                     <div className="empty-icon">
                       <EmptyIcon />
@@ -650,7 +854,7 @@ function App() {
                     <h4>未找到匹配任务</h4>
                     <p>试试其他关键词，或检查备注内容</p>
                   </div>
-                ) : isSearching ? (
+                ) : isSearching || isTodayView ? (
                   <ul className="task-list search-results">
                     <AnimatePresence>
                       {displayList.map(({ task, category: cat }) => (
@@ -658,7 +862,7 @@ function App() {
                           key={`${cat}-${task.id}`}
                           task={task}
                           taskCategory={cat}
-                          showCategoryBadge
+                          showCategoryBadge={isTodayView || isSearching}
                           reorderable={false}
                           expanded={expandedId === task.id}
                             onToggleExpand={(id) =>
@@ -689,12 +893,12 @@ function App() {
                 ) : (
                   <Reorder.Group
                     axis="y"
-                    values={currentTodos}
+                    values={sortedCategoryTodos}
                     onReorder={reorderCurrent}
                     className="task-list"
                   >
                     <AnimatePresence>
-                      {currentTodos.map((task) => (
+                      {sortedCategoryTodos.map((task) => (
                         <TaskRow
                           key={task.id}
                           task={task}
@@ -706,11 +910,19 @@ function App() {
                               prev === id ? null : id
                             )
                           }
-                          onToggleComplete={toggleComplete}
-                          onCyclePriority={cyclePriority}
-                          onUpdateDueDate={updateDueDate}
-                          onUpdateNotes={updateNotes}
-                          onDelete={deleteTask}
+                          onToggleComplete={(id) =>
+                            toggleComplete(id, category)
+                          }
+                          onCyclePriority={(id) =>
+                            cyclePriority(id, category)
+                          }
+                          onUpdateDueDate={(id, d) =>
+                            updateDueDate(id, d, category)
+                          }
+                          onUpdateNotes={(id, n) =>
+                            updateNotes(id, n, category)
+                          }
+                          onDelete={(id) => deleteTask(id, category)}
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           isDragTarget={
@@ -796,29 +1008,25 @@ function App() {
 
               <div className="panel insight-card insight-smart">
                 <div className="panel-header">
-                  <h3>今日洞察</h3>
+                  <h3>智能建议</h3>
                   <span className="panel-badge">{todayString()}</span>
                 </div>
                 <div className="panel-body">
-                  <div className="today-stats">
-                    <div className="today-stat">
-                      <strong>{todayStats.dueToday}</strong>
-                      <span>今日到期</span>
-                    </div>
-                    <div className="today-stat">
-                      <strong>{todayStats.completedToday}</strong>
-                      <span>已完成</span>
-                    </div>
+                  <div className="today-stats compact">
                     <div className="today-stat">
                       <strong>{todayStats.pendingToday}</strong>
-                      <span>待处理</span>
+                      <span>今日待办</span>
                     </div>
                     <div className="today-stat">
                       <strong>{todayStats.overdue}</strong>
                       <span>已逾期</span>
                     </div>
                   </div>
-                  <p className="motivation-text">{motivation}</p>
+                  <ul className="smart-suggestions">
+                    {smartSuggestions.map((tip) => (
+                      <li key={tip}>{tip}</li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </aside>
@@ -836,6 +1044,39 @@ function App() {
           >
             <FiClock />
             {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {celebrateOpen && (
+          <motion.div
+            className="celebrate-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setCelebrateOpen(false)}
+          >
+            <motion.div
+              className="celebrate-modal"
+              initial={{ scale: 0.85, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 10 }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="celebrate-burst" aria-hidden />
+              <div className="celebrate-icon">✓</div>
+              <h2>专注完成！</h2>
+              <p>本轮番茄钟圆满结束，休息一下吧</p>
+              <button
+                type="button"
+                className="celebrate-btn"
+                onClick={() => setCelebrateOpen(false)}
+              >
+                太棒了
+              </button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -861,6 +1102,15 @@ function App() {
                 <input placeholder="搜索或跳转工作区…" autoFocus />
               </div>
               <div className="command-items">
+                <button
+                  onClick={() => {
+                    switchCategory(VIEW_TODAY);
+                    setCommandOpen(false);
+                  }}
+                >
+                  打开今日视图
+                  <span>↵</span>
+                </button>
                 {CATEGORIES.map((item) => (
                   <button
                     key={item}
