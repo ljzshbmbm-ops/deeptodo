@@ -10,11 +10,24 @@ import {
   FiCommand,
   FiClock,
   FiBarChart2,
+  FiUser,
+  FiBriefcase,
+  FiZap,
+  FiTarget,
+  FiChevronRight,
+  FiInbox,
 } from "react-icons/fi";
 
 import "./App.css";
 
 const CATEGORIES = ["Personal", "Work", "Ideas", "Focus"];
+
+const CATEGORY_META = {
+  Personal: { icon: FiUser, desc: "个人生活与日常事务" },
+  Work: { icon: FiBriefcase, desc: "职业项目与协作任务" },
+  Ideas: { icon: FiZap, desc: "灵感草稿与创意备忘" },
+  Focus: { icon: FiTarget, desc: "深度专注与单一目标" },
+};
 
 const defaultData = {
   Personal: [],
@@ -76,6 +89,13 @@ function App() {
   const inputRef = useRef();
 
   const currentTodos = todos[category];
+  const categoryMeta = CATEGORY_META[category];
+  const CategoryIcon = categoryMeta.icon;
+
+  const categoryDone = useMemo(
+    () => currentTodos.filter((t) => t.completed).length,
+    [currentTodos]
+  );
 
   useEffect(() => {
     localStorage.setItem("deepTodoData", JSON.stringify(todos));
@@ -203,231 +223,286 @@ function App() {
 
   return (
     <div className={`app ${theme}`}>
-      <div className="background-glow"></div>
+      <div className="background-glow" aria-hidden="true" />
 
       <aside className="sidebar">
-        <div className="sidebar-top">
-          <h1 className="logo">DeepTodo</h1>
+        <div className="sidebar-brand">
+          <div className="logo-mark">D</div>
+          <div className="logo-text">
+            <span className="logo-title">DeepTodo</span>
+            <span className="logo-sub">Workspace</span>
+          </div>
+        </div>
 
+        <div className="sidebar-section">
+          <span className="sidebar-label">工作区</span>
           <nav className="menu">
-            {CATEGORIES.map((item) => (
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                whileHover={{ x: 6 }}
-                key={item}
-                className={category === item ? "active" : ""}
-                onClick={() => switchCategory(item)}
-              >
-                {item}
-              </motion.button>
-            ))}
+            {CATEGORIES.map((item) => {
+              const Icon = CATEGORY_META[item].icon;
+              return (
+                <motion.button
+                  key={item}
+                  whileTap={{ scale: 0.98 }}
+                  className={category === item ? "active" : ""}
+                  onClick={() => switchCategory(item)}
+                >
+                  <Icon className="nav-icon" />
+                  <span className="nav-label">{item}</span>
+                  <span className="nav-count">{todos[item].length}</span>
+                </motion.button>
+              );
+            })}
           </nav>
         </div>
 
         <div className="sidebar-bottom">
-          <p>Built for deep focus.</p>
+          <p>为深度专注而设计 · ⌘K 打开命令面板</p>
         </div>
       </aside>
 
       <main className="main">
-        <header className="topbar">
-          <div>
-            <h2>{category}</h2>
-            <p>Organize your workflow beautifully.</p>
-          </div>
-
-          <div className="topbar-actions">
-            <button
-              className="theme-toggle-btn"
-              onClick={() =>
-                setTheme(theme === "dark" ? "light" : "dark")
-              }
-              aria-label={
-                theme === "dark" ? "切换到白天模式" : "切换到黑夜模式"
-              }
-              title={theme === "dark" ? "白天模式" : "黑夜模式"}
-            >
-              {theme === "dark" ? <FiSun /> : <FiMoon />}
-            </button>
-
-            <button
-              className="command-btn"
-              onClick={() => setCommandOpen(true)}
-            >
-              <FiCommand />
-              Command
-            </button>
-          </div>
-        </header>
-
-        <motion.div layout className="input-section">
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder="What needs your attention?"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") addTask();
-            }}
-          />
-
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            whileHover={{ scale: 1.03 }}
-            onClick={addTask}
-          >
-            <FiPlus />
-            Add
-          </motion.button>
-        </motion.div>
-
-        <div className="content-grid">
-          <section className="tasks-panel glass">
-            <div className="panel-header">
-              <h3>Tasks</h3>
-              <span>{currentTodos.length} items</span>
+        <div className="main-scroll">
+          <header className="page-header">
+            <div className="page-header-main">
+              <div className="breadcrumb">
+                <span>工作区</span>
+                <FiChevronRight />
+                <span>{category}</span>
+              </div>
+              <h1 className="page-title">{category}</h1>
+              <p className="page-desc">{categoryMeta.desc}</p>
             </div>
 
-            <Reorder.Group
-              axis="y"
-              values={currentTodos}
-              onReorder={(newOrder) => {
-                setTodos({
-                  ...todos,
-                  [category]: newOrder,
-                });
+            <div className="header-meta">
+              <div className="stat-pill">
+                <strong>{currentTodos.length}</strong>
+                <span>当前</span>
+              </div>
+              <div className="stat-pill">
+                <strong>{categoryDone}</strong>
+                <span>已完成</span>
+              </div>
+              <div className="stat-pill">
+                <strong>{progress}%</strong>
+                <span>总进度</span>
+              </div>
+            </div>
+
+            <div className="topbar-actions">
+              <button
+                className="icon-btn"
+                onClick={() =>
+                  setTheme(theme === "dark" ? "light" : "dark")
+                }
+                aria-label={
+                  theme === "dark" ? "切换到白天模式" : "切换到黑夜模式"
+                }
+                title={theme === "dark" ? "白天模式" : "黑夜模式"}
+              >
+                {theme === "dark" ? <FiSun /> : <FiMoon />}
+              </button>
+
+              <button
+                className="command-btn"
+                onClick={() => setCommandOpen(true)}
+              >
+                <FiCommand />
+                命令
+                <span className="command-kbd">⌘K</span>
+              </button>
+            </div>
+          </header>
+
+          <motion.div layout className="composer">
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder={`在 ${category} 中添加任务…`}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") addTask();
               }}
-              className="task-list"
+            />
+
+            <motion.button
+              className="composer-add"
+              whileTap={{ scale: 0.97 }}
+              onClick={addTask}
             >
-              <AnimatePresence>
-                {currentTodos.map((task) => (
-                  <Reorder.Item
-                    key={task.id}
-                    value={task}
-                    whileDrag={{
-                      scale: 1.03,
+              <FiPlus />
+              添加
+            </motion.button>
+          </motion.div>
+
+          <div className="workspace-grid">
+            <section className="panel tasks-panel">
+              <div className="panel-header">
+                <h3>
+                  <CategoryIcon />
+                  任务列表
+                </h3>
+                <span className="panel-badge">
+                  {currentTodos.length} 项
+                </span>
+              </div>
+
+              <div className="panel-body">
+                {currentTodos.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon">
+                      <FiInbox />
+                    </div>
+                    <h4>暂无任务</h4>
+                    <p>
+                      在上方输入框添加你的第一个 {category} 任务
+                    </p>
+                  </div>
+                ) : (
+                  <Reorder.Group
+                    axis="y"
+                    values={currentTodos}
+                    onReorder={(newOrder) => {
+                      setTodos({
+                        ...todos,
+                        [category]: newOrder,
+                      });
                     }}
-                    className="task-card"
+                    className="task-list"
                   >
-                    <div
-                      className={`check ${
-                        task.completed ? "checked" : ""
-                      }`}
-                      onClick={() => toggleComplete(task.id)}
-                    ></div>
+                    <AnimatePresence>
+                      {currentTodos.map((task) => (
+                        <Reorder.Item
+                          key={task.id}
+                          value={task}
+                          whileDrag={{ scale: 1.01, boxShadow: "var(--shadow-md)" }}
+                          className="task-card"
+                        >
+                          <div
+                            className={`check ${
+                              task.completed ? "checked" : ""
+                            }`}
+                            onClick={() => toggleComplete(task.id)}
+                            role="checkbox"
+                            aria-checked={task.completed}
+                          />
 
+                          <button
+                            type="button"
+                            className={`priority-tag ${task.priority || "medium"}`}
+                            onClick={() => cyclePriority(task.id)}
+                            title="点击切换优先级"
+                          >
+                            {PRIORITY_LABELS[task.priority || "medium"]}
+                          </button>
+
+                          <span
+                            className={`task-text ${
+                              task.completed ? "completed" : ""
+                            }`}
+                          >
+                            {task.text}
+                          </span>
+
+                          <button
+                            className="delete-btn"
+                            onClick={() => deleteTask(task.id)}
+                            aria-label="删除任务"
+                          >
+                            <FiTrash2 />
+                          </button>
+                        </Reorder.Item>
+                      ))}
+                    </AnimatePresence>
+                  </Reorder.Group>
+                )}
+              </div>
+            </section>
+
+            <aside className="insight-column">
+              <div className="panel insight-card">
+                <div className="panel-header">
+                  <h3>
+                    <FiClock />
+                    专注计时
+                  </h3>
+                </div>
+                <div className="panel-body">
+                  <div className="timer-display">{formatTime()}</div>
+                  <div className="timer-buttons">
                     <button
-                      type="button"
-                      className={`priority-tag ${task.priority || "medium"}`}
-                      onClick={() => cyclePriority(task.id)}
-                      title="点击切换优先级"
-                    >
-                      {PRIORITY_LABELS[task.priority || "medium"]}
-                    </button>
-
-                    <span
-                      className={
-                        task.completed ? "completed" : ""
+                      onClick={() =>
+                        setTimerRunning(!timerRunning)
                       }
                     >
-                      {task.text}
-                    </span>
-
-                    <button
-                      className="delete-btn"
-                      onClick={() => deleteTask(task.id)}
-                    >
-                      <FiTrash2 />
+                      {timerRunning ? "暂停" : "开始"}
                     </button>
-                  </Reorder.Item>
-                ))}
-              </AnimatePresence>
-            </Reorder.Group>
-          </section>
-
-          <section className="right-column">
-            <div className="glass timer-card">
-              <div className="panel-header">
-                <h3>
-                  <FiClock />
-                  Focus Timer
-                </h3>
-              </div>
-
-              <div className="timer-time">
-                {formatTime()}
-              </div>
-
-              <div className="timer-buttons">
-                <button
-                  onClick={() =>
-                    setTimerRunning(!timerRunning)
-                  }
-                >
-                  {timerRunning ? "Pause" : "Start"}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setTimerRunning(false);
-                    setSeconds(1500);
-                  }}
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
-
-            <div className="glass analytics-card">
-              <div className="panel-header">
-                <h3>
-                  <FiBarChart2 />
-                  Analytics
-                </h3>
-              </div>
-
-              <div className="analytics-grid">
-                <div>
-                  <span>{totalCount}</span>
-                  <p>Total</p>
-                </div>
-
-                <div>
-                  <span>{completedCount}</span>
-                  <p>Done</p>
-                </div>
-
-                <div>
-                  <span>{progress}%</span>
-                  <p>Focus</p>
+                    <button
+                      onClick={() => {
+                        setTimerRunning(false);
+                        setSeconds(1500);
+                      }}
+                    >
+                      重置
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div className="progress-bar">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  className="progress-fill"
-                />
+              <div className="panel insight-card">
+                <div className="panel-header">
+                  <h3>
+                    <FiBarChart2 />
+                    数据概览
+                  </h3>
+                </div>
+                <div className="panel-body">
+                  <div className="analytics-grid">
+                    <div className="analytics-cell">
+                      <strong>{totalCount}</strong>
+                      <span>全部</span>
+                    </div>
+                    <div className="analytics-cell">
+                      <strong>{completedCount}</strong>
+                      <span>完成</span>
+                    </div>
+                    <div className="analytics-cell">
+                      <strong>{progress}%</strong>
+                      <span>进度</span>
+                    </div>
+                  </div>
+                  <div className="progress-section">
+                    <div className="progress-header">
+                      <span>完成率</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className="progress-fill"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div className="glass ai-card">
-              <div className="panel-header">
-                <h3>AI Assistant</h3>
+              <div className="panel insight-card">
+                <div className="panel-header">
+                  <h3>智能建议</h3>
+                </div>
+                <div className="panel-body">
+                  <div className="ai-box">
+                    <FiSearch />
+                    <p>
+                      将大任务拆分为可执行的小步骤，每次专注完成一项，效率会显著提升。
+                    </p>
+                  </div>
+                </div>
               </div>
-
-              <div className="ai-box">
-                <FiSearch />
-
-                <p>
-                  Try breaking large tasks into smaller
-                  milestones for better focus.
-                </p>
-              </div>
-            </div>
-          </section>
+            </aside>
+          </div>
         </div>
       </main>
 
@@ -441,54 +516,31 @@ function App() {
             onClick={() => setCommandOpen(false)}
           >
             <motion.div
-              className="command-menu glass"
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 20, opacity: 0 }}
+              className="command-menu"
+              initial={{ y: 12, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 8, opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="command-search">
                 <FiSearch />
-
-                <input placeholder="Search actions..." />
+                <input placeholder="搜索或跳转工作区…" autoFocus />
               </div>
 
               <div className="command-items">
-                <button
-                  onClick={() => {
-                    switchCategory("Personal");
-                    setCommandOpen(false);
-                  }}
-                >
-                  Open Personal
-                </button>
-
-                <button
-                  onClick={() => {
-                    switchCategory("Work");
-                    setCommandOpen(false);
-                  }}
-                >
-                  Open Work
-                </button>
-
-                <button
-                  onClick={() => {
-                    switchCategory("Ideas");
-                    setCommandOpen(false);
-                  }}
-                >
-                  Open Ideas
-                </button>
-
-                <button
-                  onClick={() => {
-                    switchCategory("Focus");
-                    setCommandOpen(false);
-                  }}
-                >
-                  Open Focus
-                </button>
+                {CATEGORIES.map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => {
+                      switchCategory(item);
+                      setCommandOpen(false);
+                    }}
+                  >
+                    打开 {item}
+                    <span>↵</span>
+                  </button>
+                ))}
               </div>
             </motion.div>
           </motion.div>
