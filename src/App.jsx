@@ -714,7 +714,7 @@ function App() {
     <div className={`app ${theme}`}>
       <div className="background-glow" aria-hidden="true" />
 
-      <aside className="sidebar">
+      <aside className="sidebar sidebar--desktop">
         <div className="sidebar-brand">
           <BrandLogo />
           <div className="logo-text">
@@ -775,6 +775,46 @@ function App() {
       </aside>
 
       <main className="main">
+        <header className="mobile-header">
+          <div className="mobile-brand">
+            <BrandLogo />
+            <div className="mobile-brand-text">
+              <span className="logo-deep">Deep</span>
+              <span className="logo-todo">Todo</span>
+            </div>
+          </div>
+          <div className="mobile-header-actions">
+            <button
+              type="button"
+              className={`icon-btn mobile-today-btn ${isTodayView ? "active" : ""}`}
+              onClick={() => switchCategory(VIEW_TODAY)}
+              aria-label="今日视图"
+            >
+              <FiCalendar />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() =>
+                setTheme(theme === "dark" ? "light" : "dark")
+              }
+              aria-label={
+                theme === "dark" ? "切换到白天模式" : "切换到黑夜模式"
+              }
+            >
+              {theme === "dark" ? <FiSun /> : <FiMoon />}
+            </button>
+            <button
+              type="button"
+              className="icon-btn grid-menu-btn"
+              onClick={() => setCommandOpen(true)}
+              aria-label="打开命令面板"
+            >
+              <GridMenuIcon />
+            </button>
+          </div>
+        </header>
+
         <div className="main-scroll" ref={mainScrollRef}>
           <header className="page-header">
             <div className="page-header-main">
@@ -1177,6 +1217,39 @@ function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <nav className="bottom-nav" aria-label="工作区导航">
+        {CATEGORIES.map((item) => {
+          const Icon = CATEGORY_META[item].icon;
+          const isActive = !isTodayView && category === item;
+
+          return (
+            <button
+              key={item}
+              type="button"
+              className={`bottom-nav-item ${isActive ? "active" : ""} ${
+                dropCategory === item && dragging ? "drop-hover" : ""
+              }`}
+              onClick={() => switchCategory(item)}
+              onDragOver={(e) => handleNavDragOver(e, item)}
+              onDragLeave={() => setDropCategory(null)}
+              onDrop={(e) => handleNavDrop(e, item)}
+              aria-label={item}
+              aria-current={isActive ? "page" : undefined}
+            >
+              <span className="bottom-nav-icon">
+                <Icon />
+              </span>
+              <span className="bottom-nav-label">{item}</span>
+              {todos[item].length > 0 && (
+                <span className="bottom-nav-badge">
+                  {todos[item].length > 99 ? "99+" : todos[item].length}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }
