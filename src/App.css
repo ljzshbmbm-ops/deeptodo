@@ -1797,6 +1797,26 @@ input {
     width: 28px;
     height: 28px;
     font-size: 14px;
+    touch-action: none;
+  }
+
+  .task-item.long-press-pending .task-card {
+    transform: scale(1.02);
+    border-color: rgba(94, 106, 210, 0.35);
+    box-shadow: var(--shadow-md);
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .task-item.long-press-armed .task-card {
+    transform: scale(1.04);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-muted), var(--shadow-lg);
+  }
+
+  .task-item.long-press-pending .drag-handle,
+  .task-item.long-press-armed .drag-handle {
+    color: var(--accent);
+    background: var(--accent-muted);
   }
 
   .due-date-wrap {

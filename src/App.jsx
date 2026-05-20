@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence, Reorder } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  Reorder,
+  useDragControls,
+} from "framer-motion";
 
 import {
   FiSearch,
@@ -52,6 +57,31 @@ const CATEGORY_META = {
 };
 
 const FOCUS_QUOTE = "Wherever you are, be all there.";
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_THRESHOLD = 10;
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 768px)").matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsMobile(mq.matches);
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  return isMobile;
+}
+
+function triggerHaptic() {
+  if (typeof navigator !== "undefined" && navigator.vibrate) {
+    navigator.vibrate(12);
+  }
+}
 
 function GridMenuIcon() {
   return (
@@ -225,6 +255,7 @@ function TaskRow({
   showCategoryBadge,
   expanded,
   reorderable = true,
+  isMobile = false,
   onToggleExpand,
   onToggleComplete,
   onCyclePriority,
@@ -236,6 +267,84 @@ function TaskRow({
   isDragTarget,
 }) {
   const dueStatus = getDueStatus(task.dueDate);
+  const dragControls = useDragControls();
+  const longPressTimer = useRef(null);
+  const pressOrigin = useRef({ x: 0, y: 0 });
+  const categoryDragReady = useRef(false);
+
+  const [pressState, setPressState] = useState("idle");
+
+  const cancelLongPressTimer = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handleHandlePointerDown = (e) => {
+    if (!isMobile) return;
+
+    e.stopPropagation();
+    pressOrigin.current = { x: e.clientX, y: e.clientY };
+    setPressState("pending");
+
+    longPressTimer.current = setTimeout(() => {
+      longPressTimer.current = null;
+      triggerHaptic();
+      setPressState("armed");
+      categoryDragReady.current = true;
+
+      if (reorderable) {
+        dragControls.start(e);
+      }
+    }, LONG_PRESS_MS);
+  };
+
+  const handleHandlePointerMove = (e) => {
+    if (!isMobile || !longPressTimer.current) return;
+
+    const dx = e.clientX - pressOrigin.current.x;
+    const dy = e.clientY - pressOrigin.current.y;
+
+    if (
+      Math.abs(dx) > LONG_PRESS_MOVE_THRESHOLD ||
+      Math.abs(dy) > LONG_PRESS_MOVE_THRESHOLD
+    ) {
+      cancelLongPressTimer();
+      setPressState("idle");
+    }
+  };
+
+  const handleHandlePointerUp = () => {
+    cancelLongPressTimer();
+    if (pressState === "pending") {
+      setPressState("idle");
+      categoryDragReady.current = false;
+    }
+  };
+
+  const handleNativeDragStart = (e) => {
+    if (isMobile && !categoryDragReady.current) {
+      e.preventDefault();
+      return;
+    }
+    onDragStart(e, task, taskCategory);
+  };
+
+  const handleNativeDragEnd = (e) => {
+    categoryDragReady.current = false;
+    setPressState("idle");
+    onDragEnd(e);
+  };
+
+  const taskItemClass = [
+    "task-item",
+    isDragTarget ? "drag-target" : "",
+    pressState === "pending" ? "long-press-pending" : "",
+    pressState === "armed" ? "long-press-armed" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const inner = (
     <>
@@ -243,7 +352,9 @@ function TaskRow({
         className={`task-card ${expanded ? "expanded" : ""}`}
         onClick={(e) => {
           if (
-            e.target.closest("button, input, textarea, label, .check, .due-date-wrap")
+            e.target.closest(
+              "button, input, textarea, label, .check, .due-date-wrap, .drag-handle"
+            )
           ) {
             return;
           }
@@ -252,10 +363,19 @@ function TaskRow({
       >
         <span
           className="drag-handle"
-          title="拖拽到其他分类"
-          draggable
-          onDragStart={(e) => onDragStart(e, task, taskCategory)}
-          onDragEnd={onDragEnd}
+          title={
+            isMobile
+              ? "长按 0.5 秒拖动排序或移动分类"
+              : "拖拽到其他分类"
+          }
+          draggable={!isMobile}
+          onPointerDown={handleHandlePointerDown}
+          onPointerMove={handleHandlePointerMove}
+          onPointerUp={handleHandlePointerUp}
+          onPointerCancel={handleHandlePointerUp}
+          onContextMenu={(e) => isMobile && e.preventDefault()}
+          onDragStart={handleNativeDragStart}
+          onDragEnd={handleNativeDragEnd}
         >
           <FiMove />
         </span>
@@ -361,18 +481,23 @@ function TaskRow({
   );
 
   if (!reorderable) {
-    return (
-      <div className={`task-item ${isDragTarget ? "drag-target" : ""}`}>
-        {inner}
-      </div>
-    );
+    return <div className={taskItemClass}>{inner}</div>;
   }
 
   return (
     <Reorder.Item
       value={task}
-      whileDrag={{ scale: 1.01, boxShadow: "var(--shadow-md)" }}
-      className={`task-item ${isDragTarget ? "drag-target" : ""}`}
+      dragListener={!isMobile}
+      dragControls={dragControls}
+      whileDrag={{
+        scale: isMobile ? 1.04 : 1.01,
+        boxShadow: "var(--shadow-lg)",
+      }}
+      className={taskItemClass}
+      onDragEnd={() => {
+        setPressState("idle");
+        categoryDragReady.current = false;
+      }}
     >
       {inner}
     </Reorder.Item>
@@ -380,6 +505,8 @@ function TaskRow({
 }
 
 function App() {
+  const isMobile = useIsMobile();
+
   const [theme, setTheme] = useState(
     () => localStorage.getItem("deepTodoTheme") || "dark"
   );
@@ -953,6 +1080,7 @@ function App() {
                           taskCategory={cat}
                           showCategoryBadge={isTodayView || isSearching}
                           reorderable={false}
+                          isMobile={isMobile}
                           expanded={expandedId === task.id}
                             onToggleExpand={(id) =>
                               setExpandedId((prev) =>
@@ -993,6 +1121,7 @@ function App() {
                           task={task}
                           taskCategory={category}
                           showCategoryBadge={false}
+                          isMobile={isMobile}
                           expanded={expandedId === task.id}
                           onToggleExpand={(id) =>
                             setExpandedId((prev) =>
