@@ -7,7 +7,6 @@ import {
   FiTrash2,
   FiMoon,
   FiSun,
-  FiCommand,
   FiClock,
   FiBarChart2,
   FiUser,
@@ -53,6 +52,54 @@ const CATEGORY_META = {
 };
 
 const FOCUS_QUOTE = "Wherever you are, be all there.";
+
+function GridMenuIcon() {
+  return (
+    <svg
+      className="grid-menu-icon"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <rect
+        x="1.25"
+        y="1.25"
+        width="5.75"
+        height="5.75"
+        rx="1.75"
+        fill="currentColor"
+      />
+      <rect
+        x="9"
+        y="1.25"
+        width="5.75"
+        height="5.75"
+        rx="1.75"
+        fill="currentColor"
+        fillOpacity="0.42"
+      />
+      <rect
+        x="1.25"
+        y="9"
+        width="5.75"
+        height="5.75"
+        rx="1.75"
+        fill="currentColor"
+        fillOpacity="0.42"
+      />
+      <rect
+        x="9"
+        y="9"
+        width="5.75"
+        height="5.75"
+        rx="1.75"
+        fill="currentColor"
+        fillOpacity="0.22"
+      />
+    </svg>
+  );
+}
 
 function BrandLogo() {
   return (
@@ -767,12 +814,14 @@ function App() {
                 {theme === "dark" ? <FiSun /> : <FiMoon />}
               </button>
               <button
-                className="command-btn"
+                type="button"
+                className="icon-btn grid-menu-btn"
                 onClick={() => setCommandOpen(true)}
+                aria-label="打开命令面板"
+                title="命令面板 ⌘K"
               >
-                <FiCommand />
-                命令
-                <span className="command-kbd">⌘K</span>
+                <GridMenuIcon />
+                <span className="grid-menu-kbd">⌘K</span>
               </button>
             </div>
           </header>
