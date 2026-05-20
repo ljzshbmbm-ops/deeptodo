@@ -14,6 +14,8 @@ import {
 
 import "./App.css";
 
+const CATEGORIES = ["Personal", "Work", "Ideas", "Focus"];
+
 const defaultData = {
   Personal: [],
   Work: [],
@@ -21,16 +23,52 @@ const defaultData = {
   Focus: [],
 };
 
+const PRIORITIES = ["high", "medium", "low"];
+
+const PRIORITY_LABELS = {
+  high: "高",
+  medium: "中",
+  low: "低",
+};
+
+function loadTodos() {
+  const saved = localStorage.getItem("deepTodoData");
+  if (!saved) return defaultData;
+
+  try {
+    const parsed = JSON.parse(saved);
+
+    if (Array.isArray(parsed)) {
+      return { ...defaultData, Personal: parsed };
+    }
+
+    const merged = { ...defaultData, ...parsed };
+
+    for (const key of CATEGORIES) {
+      merged[key] = (merged[key] || []).map((task) => ({
+        ...task,
+        priority: PRIORITIES.includes(task.priority) ? task.priority : "medium",
+      }));
+    }
+
+    return merged;
+  } catch {
+    return defaultData;
+  }
+}
+
 function App() {
-  const [theme, setTheme] = useState("dark");
-  const [category, setCategory] = useState("Personal");
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("deepTodoTheme") || "dark";
+  });
+  const [category, setCategory] = useState(() => {
+    const saved = localStorage.getItem("deepTodoCategory");
+    return CATEGORIES.includes(saved) ? saved : "Personal";
+  });
   const [input, setInput] = useState("");
   const [commandOpen, setCommandOpen] = useState(false);
 
-  const [todos, setTodos] = useState(() => {
-    const saved = localStorage.getItem("deepTodoData");
-    return saved ? JSON.parse(saved) : defaultData;
-  });
+  const [todos, setTodos] = useState(loadTodos);
 
   const [seconds, setSeconds] = useState(1500);
   const [timerRunning, setTimerRunning] = useState(false);
@@ -42,6 +80,15 @@ function App() {
   useEffect(() => {
     localStorage.setItem("deepTodoData", JSON.stringify(todos));
   }, [todos]);
+
+  useEffect(() => {
+    localStorage.setItem("deepTodoTheme", theme);
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("deepTodoCategory", category);
+  }, [category]);
 
   useEffect(() => {
     let interval;
@@ -82,6 +129,7 @@ function App() {
       id: Date.now(),
       text: input,
       completed: false,
+      priority: "medium",
     };
 
     setTodos({
@@ -111,6 +159,26 @@ function App() {
     });
   };
 
+  const cyclePriority = (id) => {
+    setTodos({
+      ...todos,
+      [category]: todos[category].map((task) => {
+        if (task.id !== id) return task;
+
+        const currentIndex = PRIORITIES.indexOf(task.priority || "medium");
+        const nextPriority =
+          PRIORITIES[(currentIndex + 1) % PRIORITIES.length];
+
+        return { ...task, priority: nextPriority };
+      }),
+    });
+  };
+
+  const switchCategory = (item) => {
+    setCategory(item);
+    setInput("");
+  };
+
   const completedCount = useMemo(() => {
     return Object.values(todos)
       .flat()
@@ -138,17 +206,17 @@ function App() {
       <div className="background-glow"></div>
 
       <aside className="sidebar">
-        <div>
+        <div className="sidebar-top">
           <h1 className="logo">DeepTodo</h1>
 
           <nav className="menu">
-            {["Personal", "Work", "Ideas", "Focus"].map((item) => (
+            {CATEGORIES.map((item) => (
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 whileHover={{ x: 6 }}
                 key={item}
                 className={category === item ? "active" : ""}
-                onClick={() => setCategory(item)}
+                onClick={() => switchCategory(item)}
               >
                 {item}
               </motion.button>
@@ -157,15 +225,6 @@ function App() {
         </div>
 
         <div className="sidebar-bottom">
-          <button
-            className="theme-btn"
-            onClick={() =>
-              setTheme(theme === "dark" ? "light" : "dark")
-            }
-          >
-            {theme === "dark" ? <FiSun /> : <FiMoon />}
-          </button>
-
           <p>Built for deep focus.</p>
         </div>
       </aside>
@@ -177,13 +236,28 @@ function App() {
             <p>Organize your workflow beautifully.</p>
           </div>
 
-          <button
-            className="command-btn"
-            onClick={() => setCommandOpen(true)}
-          >
-            <FiCommand />
-            Command
-          </button>
+          <div className="topbar-actions">
+            <button
+              className="theme-toggle-btn"
+              onClick={() =>
+                setTheme(theme === "dark" ? "light" : "dark")
+              }
+              aria-label={
+                theme === "dark" ? "切换到白天模式" : "切换到黑夜模式"
+              }
+              title={theme === "dark" ? "白天模式" : "黑夜模式"}
+            >
+              {theme === "dark" ? <FiSun /> : <FiMoon />}
+            </button>
+
+            <button
+              className="command-btn"
+              onClick={() => setCommandOpen(true)}
+            >
+              <FiCommand />
+              Command
+            </button>
+          </div>
         </header>
 
         <motion.div layout className="input-section">
@@ -242,6 +316,15 @@ function App() {
                       }`}
                       onClick={() => toggleComplete(task.id)}
                     ></div>
+
+                    <button
+                      type="button"
+                      className={`priority-tag ${task.priority || "medium"}`}
+                      onClick={() => cyclePriority(task.id)}
+                      title="点击切换优先级"
+                    >
+                      {PRIORITY_LABELS[task.priority || "medium"]}
+                    </button>
 
                     <span
                       className={
@@ -371,19 +454,39 @@ function App() {
               </div>
 
               <div className="command-items">
-                <button onClick={() => setCategory("Personal")}>
+                <button
+                  onClick={() => {
+                    switchCategory("Personal");
+                    setCommandOpen(false);
+                  }}
+                >
                   Open Personal
                 </button>
 
-                <button onClick={() => setCategory("Work")}>
+                <button
+                  onClick={() => {
+                    switchCategory("Work");
+                    setCommandOpen(false);
+                  }}
+                >
                   Open Work
                 </button>
 
-                <button onClick={() => setCategory("Ideas")}>
+                <button
+                  onClick={() => {
+                    switchCategory("Ideas");
+                    setCommandOpen(false);
+                  }}
+                >
                   Open Ideas
                 </button>
 
-                <button onClick={() => setCategory("Focus")}>
+                <button
+                  onClick={() => {
+                    switchCategory("Focus");
+                    setCommandOpen(false);
+                  }}
+                >
                   Open Focus
                 </button>
               </div>
