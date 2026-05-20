@@ -16,11 +16,29 @@ import {
   FiTarget,
   FiChevronRight,
   FiInbox,
+  FiCalendar,
+  FiChevronDown,
+  FiChevronUp,
+  FiMove,
+  FiX,
 } from "react-icons/fi";
 
-import "./App.css";
+import {
+  CATEGORIES,
+  PRIORITY_LABELS,
+  EMPTY_GUIDES,
+  loadTodos,
+  normalizeTask,
+  todayString,
+  getDueStatus,
+  formatDueLabel,
+  getTodayStats,
+  getMotivation,
+  playPomodoroSound,
+  notifyPomodoroDone,
+} from "./utils/tasks";
 
-const CATEGORIES = ["Personal", "Work", "Ideas", "Focus"];
+import "./App.css";
 
 const CATEGORY_META = {
   Personal: { icon: FiUser, desc: "个人生活与日常事务" },
@@ -29,73 +47,229 @@ const CATEGORY_META = {
   Focus: { icon: FiTarget, desc: "深度专注与单一目标" },
 };
 
-const defaultData = {
-  Personal: [],
-  Work: [],
-  Ideas: [],
-  Focus: [],
-};
+function TaskRow({
+  task,
+  taskCategory,
+  showCategoryBadge,
+  expanded,
+  reorderable = true,
+  onToggleExpand,
+  onToggleComplete,
+  onCyclePriority,
+  onUpdateDueDate,
+  onUpdateNotes,
+  onDelete,
+  onDragStart,
+  onDragEnd,
+  isDragTarget,
+}) {
+  const dueStatus = getDueStatus(task.dueDate);
 
-const PRIORITIES = ["high", "medium", "low"];
+  const inner = (
+    <>
+      <div
+        className={`task-card ${expanded ? "expanded" : ""}`}
+        onClick={(e) => {
+          if (
+            e.target.closest("button, input, textarea, label, .check, .due-date-wrap")
+          ) {
+            return;
+          }
+          onToggleExpand(task.id);
+        }}
+      >
+        <span
+          className="drag-handle"
+          title="拖拽到其他分类"
+          draggable
+          onDragStart={(e) => onDragStart(e, task, taskCategory)}
+          onDragEnd={onDragEnd}
+        >
+          <FiMove />
+        </span>
 
-const PRIORITY_LABELS = {
-  high: "高",
-  medium: "中",
-  low: "低",
-};
+        <div
+          className={`check ${task.completed ? "checked" : ""}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleComplete(task.id);
+          }}
+          role="checkbox"
+          aria-checked={task.completed}
+        />
 
-function loadTodos() {
-  const saved = localStorage.getItem("deepTodoData");
-  if (!saved) return defaultData;
+        <button
+          type="button"
+          className={`priority-tag ${task.priority || "medium"}`}
+          onClick={() => onCyclePriority(task.id)}
+          title="点击切换优先级"
+        >
+          {PRIORITY_LABELS[task.priority || "medium"]}
+        </button>
 
-  try {
-    const parsed = JSON.parse(saved);
+        <div className="task-main">
+          <div className="task-title-row">
+            {showCategoryBadge && (
+              <span className="category-badge">{taskCategory}</span>
+            )}
+            <span className="task-text-wrap">
+              <span
+                className={`task-text ${task.completed ? "completed" : ""}`}
+              >
+                {task.text}
+              </span>
+            </span>
+          </div>
 
-    if (Array.isArray(parsed)) {
-      return { ...defaultData, Personal: parsed };
-    }
+          <div className="task-meta-row">
+            <label className={`due-date-wrap due-${dueStatus}`}>
+              <FiCalendar />
+              <span>{formatDueLabel(task.dueDate)}</span>
+              <input
+                type="date"
+                className="due-date-input"
+                value={task.dueDate || ""}
+                onChange={(e) =>
+                  onUpdateDueDate(task.id, e.target.value || null)
+                }
+                onClick={(e) => e.stopPropagation()}
+              />
+            </label>
 
-    const merged = { ...defaultData, ...parsed };
+            {task.notes ? (
+              <span className="has-notes">有备注</span>
+            ) : null}
 
-    for (const key of CATEGORIES) {
-      merged[key] = (merged[key] || []).map((task) => ({
-        ...task,
-        priority: PRIORITIES.includes(task.priority) ? task.priority : "medium",
-      }));
-    }
+            <button
+              type="button"
+              className="expand-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand(task.id);
+              }}
+              aria-label={expanded ? "收起备注" : "展开备注"}
+            >
+              {expanded ? <FiChevronUp /> : <FiChevronDown />}
+            </button>
+          </div>
+        </div>
 
-    return merged;
-  } catch {
-    return defaultData;
+        <button
+          className="delete-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(task.id);
+          }}
+          aria-label="删除任务"
+        >
+          <FiTrash2 />
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            className="task-notes-panel"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <textarea
+              className="task-notes-input"
+              placeholder="添加备注、链接或详细说明…"
+              value={task.notes || ""}
+              onChange={(e) => onUpdateNotes(task.id, e.target.value)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+
+  if (!reorderable) {
+    return (
+      <div className={`task-item ${isDragTarget ? "drag-target" : ""}`}>
+        {inner}
+      </div>
+    );
   }
+
+  return (
+    <Reorder.Item
+      value={task}
+      whileDrag={{ scale: 1.01, boxShadow: "var(--shadow-md)" }}
+      className={`task-item ${isDragTarget ? "drag-target" : ""}`}
+    >
+      {inner}
+    </Reorder.Item>
+  );
 }
 
 function App() {
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("deepTodoTheme") || "dark";
-  });
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("deepTodoTheme") || "dark"
+  );
   const [category, setCategory] = useState(() => {
     const saved = localStorage.getItem("deepTodoCategory");
     return CATEGORIES.includes(saved) ? saved : "Personal";
   });
   const [input, setInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [commandOpen, setCommandOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+  const [dragging, setDragging] = useState(null);
+  const [dropCategory, setDropCategory] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const [todos, setTodos] = useState(loadTodos);
-
   const [seconds, setSeconds] = useState(1500);
   const [timerRunning, setTimerRunning] = useState(false);
 
   const inputRef = useRef();
+  const pomodoroFiredRef = useRef(false);
 
   const currentTodos = todos[category];
   const categoryMeta = CATEGORY_META[category];
   const CategoryIcon = categoryMeta.icon;
+  const EmptyIcon = categoryMeta.icon;
+
+  const isSearching = searchQuery.trim().length > 0;
+
+  const searchResults = useMemo(() => {
+    if (!isSearching) return null;
+    const q = searchQuery.trim().toLowerCase();
+
+    return CATEGORIES.flatMap((cat) =>
+      todos[cat]
+        .filter(
+          (t) =>
+            t.text.toLowerCase().includes(q) ||
+            (t.notes || "").toLowerCase().includes(q)
+        )
+        .map((t) => ({ task: t, category: cat }))
+    );
+  }, [searchQuery, todos, isSearching]);
+
+  const displayList = isSearching
+    ? searchResults
+    : currentTodos.map((t) => ({ task: t, category }));
 
   const categoryDone = useMemo(
     () => currentTodos.filter((t) => t.completed).length,
     [currentTodos]
   );
+
+  const todayStats = useMemo(() => getTodayStats(todos), [todos]);
+  const motivation = useMemo(() => getMotivation(todayStats), [todayStats]);
+
+  const updateCategory = (cat, updater) => {
+    setTodos((prev) => ({
+      ...prev,
+      [cat]: updater(prev[cat]),
+    }));
+  };
 
   useEffect(() => {
     localStorage.setItem("deepTodoData", JSON.stringify(todos));
@@ -111,23 +285,39 @@ function App() {
   }, [category]);
 
   useEffect(() => {
-    let interval;
-
-    if (timerRunning) {
-      interval = setInterval(() => {
-        setSeconds((prev) => {
-          if (prev <= 1) {
-            setTimerRunning(false);
-            return 1500;
-          }
-
-          return prev - 1;
-        });
-      }, 1000);
+    if (!timerRunning) {
+      pomodoroFiredRef.current = false;
+      return;
     }
+
+    const interval = setInterval(() => {
+      setSeconds((prev) => {
+        if (prev <= 1) {
+          setTimerRunning(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [timerRunning]);
+
+  useEffect(() => {
+    if (seconds !== 0 || timerRunning || pomodoroFiredRef.current) return;
+
+    pomodoroFiredRef.current = true;
+    playPomodoroSound();
+    notifyPomodoroDone();
+    setToast("番茄钟时间到，休息一下吧");
+    setSeconds(1500);
+  }, [seconds, timerRunning]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   useEffect(() => {
     const down = (e) => {
@@ -136,89 +326,156 @@ function App() {
         setCommandOpen((prev) => !prev);
       }
     };
-
     window.addEventListener("keydown", down);
-
     return () => window.removeEventListener("keydown", down);
   }, []);
+
+  const showToast = (msg) => setToast(msg);
 
   const addTask = () => {
     if (!input.trim()) return;
 
-    const newTask = {
+    const newTask = normalizeTask({
       id: Date.now(),
       text: input,
       completed: false,
       priority: "medium",
-    };
-
-    setTodos({
-      ...todos,
-      [category]: [...todos[category], newTask],
+      dueDate: null,
+      notes: "",
     });
 
+    updateCategory(category, (list) => [...list, newTask]);
     setInput("");
-    inputRef.current.focus();
+    inputRef.current?.focus();
   };
 
-  const deleteTask = (id) => {
-    setTodos({
-      ...todos,
-      [category]: todos[category].filter((task) => task.id !== id),
-    });
+  const deleteTask = (id, cat = category) => {
+    updateCategory(cat, (list) => list.filter((t) => t.id !== id));
+    if (expandedId === id) setExpandedId(null);
   };
 
-  const toggleComplete = (id) => {
-    setTodos({
-      ...todos,
-      [category]: todos[category].map((task) =>
-        task.id === id
-          ? { ...task, completed: !task.completed }
-          : task
-      ),
-    });
+  const toggleComplete = (id, cat = category) => {
+    updateCategory(cat, (list) =>
+      list.map((t) =>
+        t.id === id ? { ...t, completed: !t.completed } : t
+      )
+    );
   };
 
-  const cyclePriority = (id) => {
-    setTodos({
-      ...todos,
-      [category]: todos[category].map((task) => {
-        if (task.id !== id) return task;
+  const cyclePriority = (id, cat = category) => {
+    const PRIORITIES = ["high", "medium", "low"];
+    updateCategory(cat, (list) =>
+      list.map((t) => {
+        if (t.id !== id) return t;
+        const idx = PRIORITIES.indexOf(t.priority || "medium");
+        return {
+          ...t,
+          priority: PRIORITIES[(idx + 1) % PRIORITIES.length],
+        };
+      })
+    );
+  };
 
-        const currentIndex = PRIORITIES.indexOf(task.priority || "medium");
-        const nextPriority =
-          PRIORITIES[(currentIndex + 1) % PRIORITIES.length];
+  const updateDueDate = (id, dueDate, cat = category) => {
+    updateCategory(cat, (list) =>
+      list.map((t) => (t.id === id ? { ...t, dueDate } : t))
+    );
+  };
 
-        return { ...task, priority: nextPriority };
-      }),
-    });
+  const updateNotes = (id, notes, cat = category) => {
+    updateCategory(cat, (list) =>
+      list.map((t) => (t.id === id ? { ...t, notes } : t))
+    );
   };
 
   const switchCategory = (item) => {
     setCategory(item);
     setInput("");
+    setExpandedId(null);
   };
 
-  const completedCount = useMemo(() => {
-    return Object.values(todos)
-      .flat()
-      .filter((task) => task.completed).length;
-  }, [todos]);
+  const moveTaskToCategory = (taskId, fromCat, toCat) => {
+    if (fromCat === toCat) return;
+    const task = todos[fromCat].find((t) => t.id === taskId);
+    if (!task) return;
 
-  const totalCount = useMemo(() => {
-    return Object.values(todos).flat().length;
-  }, [todos]);
+    setTodos((prev) => ({
+      ...prev,
+      [fromCat]: prev[fromCat].filter((t) => t.id !== taskId),
+      [toCat]: [...prev[toCat], task],
+    }));
+
+    if (expandedId === taskId) setExpandedId(null);
+    showToast(`已移动到 ${toCat}`);
+  };
+
+  const handleDragStart = (e, task, fromCat) => {
+    setDragging({ task, fromCat });
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData(
+      "application/json",
+      JSON.stringify({ id: task.id, fromCat })
+    );
+  };
+
+  const handleDragEnd = () => {
+    setDragging(null);
+    setDropCategory(null);
+  };
+
+  const handleNavDragOver = (e, cat) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropCategory(cat);
+  };
+
+  const handleNavDrop = (e, toCat) => {
+    e.preventDefault();
+    try {
+      const { id, fromCat } = JSON.parse(
+        e.dataTransfer.getData("application/json")
+      );
+      moveTaskToCategory(id, fromCat, toCat);
+      if (toCat !== category) switchCategory(toCat);
+    } catch {
+      /* ignore */
+    }
+    handleDragEnd();
+  };
+
+  const startTimer = async () => {
+    if (!timerRunning && "Notification" in window) {
+      if (Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
+    }
+    setTimerRunning((r) => !r);
+  };
+
+  const completedCount = useMemo(
+    () => Object.values(todos).flat().filter((t) => t.completed).length,
+    [todos]
+  );
+
+  const totalCount = useMemo(
+    () => Object.values(todos).flat().length,
+    [todos]
+  );
 
   const progress =
-    totalCount === 0
-      ? 0
-      : Math.round((completedCount / totalCount) * 100);
+    totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
 
   const formatTime = () => {
     const mins = String(Math.floor(seconds / 60)).padStart(2, "0");
     const secs = String(seconds % 60).padStart(2, "0");
-
     return `${mins}:${secs}`;
+  };
+
+  const emptyGuide = EMPTY_GUIDES[category];
+
+  const reorderCurrent = (newOrder) => {
+    if (isSearching) return;
+    setTodos((prev) => ({ ...prev, [category]: newOrder }));
   };
 
   return (
@@ -239,12 +496,17 @@ function App() {
           <nav className="menu">
             {CATEGORIES.map((item) => {
               const Icon = CATEGORY_META[item].icon;
+              const isDrop = dropCategory === item && dragging;
+
               return (
                 <motion.button
                   key={item}
                   whileTap={{ scale: 0.98 }}
-                  className={category === item ? "active" : ""}
+                  className={`${category === item ? "active" : ""} ${isDrop ? "drop-hover" : ""}`}
                   onClick={() => switchCategory(item)}
+                  onDragOver={(e) => handleNavDragOver(e, item)}
+                  onDragLeave={() => setDropCategory(null)}
+                  onDrop={(e) => handleNavDrop(e, item)}
                 >
                   <Icon className="nav-icon" />
                   <span className="nav-label">{item}</span>
@@ -253,10 +515,14 @@ function App() {
               );
             })}
           </nav>
+          {dragging && (
+            <p className="drag-hint">松开以移动到高亮分类</p>
+          )}
         </div>
 
         <div className="sidebar-bottom">
-          <p>为深度专注而设计 · ⌘K 打开命令面板</p>
+          <p className="slogan-quote">「专注当下，完成重要的事。」</p>
+          <p className="slogan-sub">数据已自动保存至本地 · ⌘K 命令面板</p>
         </div>
       </aside>
 
@@ -297,11 +563,9 @@ function App() {
                 aria-label={
                   theme === "dark" ? "切换到白天模式" : "切换到黑夜模式"
                 }
-                title={theme === "dark" ? "白天模式" : "黑夜模式"}
               >
                 {theme === "dark" ? <FiSun /> : <FiMoon />}
               </button>
-
               <button
                 className="command-btn"
                 onClick={() => setCommandOpen(true)}
@@ -313,105 +577,146 @@ function App() {
             </div>
           </header>
 
-          <motion.div layout className="composer">
+          <div className="search-bar">
+            <FiSearch />
             <input
-              ref={inputRef}
-              type="text"
-              placeholder={`在 ${category} 中添加任务…`}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") addTask();
-              }}
+              type="search"
+              placeholder="搜索任务标题或备注…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <button
+                className="search-clear"
+                onClick={() => setSearchQuery("")}
+                aria-label="清除搜索"
+              >
+                <FiX />
+              </button>
+            )}
+          </div>
 
-            <motion.button
-              className="composer-add"
-              whileTap={{ scale: 0.97 }}
-              onClick={addTask}
-            >
-              <FiPlus />
-              添加
-            </motion.button>
-          </motion.div>
+          {!isSearching && (
+            <motion.div layout className="composer">
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={`在 ${category} 中添加任务…`}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addTask();
+                }}
+              />
+              <motion.button
+                className="composer-add"
+                whileTap={{ scale: 0.97 }}
+                onClick={addTask}
+              >
+                <FiPlus />
+                添加
+              </motion.button>
+            </motion.div>
+          )}
 
           <div className="workspace-grid">
             <section className="panel tasks-panel">
               <div className="panel-header">
                 <h3>
                   <CategoryIcon />
-                  任务列表
+                  {isSearching ? "搜索结果" : "任务列表"}
                 </h3>
                 <span className="panel-badge">
-                  {currentTodos.length} 项
+                  {isSearching
+                    ? `${displayList.length} 条匹配`
+                    : `${currentTodos.length} 项`}
                 </span>
               </div>
 
               <div className="panel-body">
-                {currentTodos.length === 0 ? (
+                {!isSearching && currentTodos.length === 0 ? (
                   <div className="empty-state">
                     <div className="empty-icon">
-                      <FiInbox />
+                      <EmptyIcon />
                     </div>
-                    <h4>暂无任务</h4>
-                    <p>
-                      在上方输入框添加你的第一个 {category} 任务
-                    </p>
+                    <h4>{emptyGuide.title}</h4>
+                    <p>{emptyGuide.desc}</p>
                   </div>
+                ) : isSearching && displayList.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon">
+                      <FiSearch />
+                    </div>
+                    <h4>未找到匹配任务</h4>
+                    <p>试试其他关键词，或检查备注内容</p>
+                  </div>
+                ) : isSearching ? (
+                  <ul className="task-list search-results">
+                    <AnimatePresence>
+                      {displayList.map(({ task, category: cat }) => (
+                        <TaskRow
+                          key={`${cat}-${task.id}`}
+                          task={task}
+                          taskCategory={cat}
+                          showCategoryBadge
+                          reorderable={false}
+                          expanded={expandedId === task.id}
+                            onToggleExpand={(id) =>
+                              setExpandedId((prev) =>
+                                prev === id ? null : id
+                              )
+                            }
+                            onToggleComplete={(id) =>
+                              toggleComplete(id, cat)
+                            }
+                            onCyclePriority={(id) =>
+                              cyclePriority(id, cat)
+                            }
+                            onUpdateDueDate={(id, d) =>
+                              updateDueDate(id, d, cat)
+                            }
+                            onUpdateNotes={(id, n) =>
+                              updateNotes(id, n, cat)
+                            }
+                            onDelete={(id) => deleteTask(id, cat)}
+                            onDragStart={handleDragStart}
+                            onDragEnd={handleDragEnd}
+                            isDragTarget={false}
+                          />
+                      ))}
+                    </AnimatePresence>
+                  </ul>
                 ) : (
                   <Reorder.Group
                     axis="y"
                     values={currentTodos}
-                    onReorder={(newOrder) => {
-                      setTodos({
-                        ...todos,
-                        [category]: newOrder,
-                      });
-                    }}
+                    onReorder={reorderCurrent}
                     className="task-list"
                   >
                     <AnimatePresence>
                       {currentTodos.map((task) => (
-                        <Reorder.Item
+                        <TaskRow
                           key={task.id}
-                          value={task}
-                          whileDrag={{ scale: 1.01, boxShadow: "var(--shadow-md)" }}
-                          className="task-card"
-                        >
-                          <div
-                            className={`check ${
-                              task.completed ? "checked" : ""
-                            }`}
-                            onClick={() => toggleComplete(task.id)}
-                            role="checkbox"
-                            aria-checked={task.completed}
-                          />
-
-                          <button
-                            type="button"
-                            className={`priority-tag ${task.priority || "medium"}`}
-                            onClick={() => cyclePriority(task.id)}
-                            title="点击切换优先级"
-                          >
-                            {PRIORITY_LABELS[task.priority || "medium"]}
-                          </button>
-
-                          <span
-                            className={`task-text ${
-                              task.completed ? "completed" : ""
-                            }`}
-                          >
-                            {task.text}
-                          </span>
-
-                          <button
-                            className="delete-btn"
-                            onClick={() => deleteTask(task.id)}
-                            aria-label="删除任务"
-                          >
-                            <FiTrash2 />
-                          </button>
-                        </Reorder.Item>
+                          task={task}
+                          taskCategory={category}
+                          showCategoryBadge={false}
+                          expanded={expandedId === task.id}
+                          onToggleExpand={(id) =>
+                            setExpandedId((prev) =>
+                              prev === id ? null : id
+                            )
+                          }
+                          onToggleComplete={toggleComplete}
+                          onCyclePriority={cyclePriority}
+                          onUpdateDueDate={updateDueDate}
+                          onUpdateNotes={updateNotes}
+                          onDelete={deleteTask}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          isDragTarget={
+                            dragging?.task.id === task.id
+                          }
+                        />
                       ))}
                     </AnimatePresence>
                   </Reorder.Group>
@@ -428,19 +733,20 @@ function App() {
                   </h3>
                 </div>
                 <div className="panel-body">
-                  <div className="timer-display">{formatTime()}</div>
+                  <div
+                    className={`timer-display ${timerRunning ? "running" : ""}`}
+                  >
+                    {formatTime()}
+                  </div>
                   <div className="timer-buttons">
-                    <button
-                      onClick={() =>
-                        setTimerRunning(!timerRunning)
-                      }
-                    >
+                    <button onClick={startTimer}>
                       {timerRunning ? "暂停" : "开始"}
                     </button>
                     <button
                       onClick={() => {
                         setTimerRunning(false);
                         setSeconds(1500);
+                        pomodoroFiredRef.current = false;
                       }}
                     >
                       重置
@@ -488,23 +794,51 @@ function App() {
                 </div>
               </div>
 
-              <div className="panel insight-card">
+              <div className="panel insight-card insight-smart">
                 <div className="panel-header">
-                  <h3>智能建议</h3>
+                  <h3>今日洞察</h3>
+                  <span className="panel-badge">{todayString()}</span>
                 </div>
                 <div className="panel-body">
-                  <div className="ai-box">
-                    <FiSearch />
-                    <p>
-                      将大任务拆分为可执行的小步骤，每次专注完成一项，效率会显著提升。
-                    </p>
+                  <div className="today-stats">
+                    <div className="today-stat">
+                      <strong>{todayStats.dueToday}</strong>
+                      <span>今日到期</span>
+                    </div>
+                    <div className="today-stat">
+                      <strong>{todayStats.completedToday}</strong>
+                      <span>已完成</span>
+                    </div>
+                    <div className="today-stat">
+                      <strong>{todayStats.pendingToday}</strong>
+                      <span>待处理</span>
+                    </div>
+                    <div className="today-stat">
+                      <strong>{todayStats.overdue}</strong>
+                      <span>已逾期</span>
+                    </div>
                   </div>
+                  <p className="motivation-text">{motivation}</p>
                 </div>
               </div>
             </aside>
           </div>
         </div>
       </main>
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            className="toast"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+          >
+            <FiClock />
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {commandOpen && (
@@ -520,14 +854,12 @@ function App() {
               initial={{ y: 12, opacity: 0, scale: 0.98 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: 8, opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.18 }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="command-search">
                 <FiSearch />
                 <input placeholder="搜索或跳转工作区…" autoFocus />
               </div>
-
               <div className="command-items">
                 {CATEGORIES.map((item) => (
                   <button
