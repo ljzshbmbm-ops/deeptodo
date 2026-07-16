@@ -289,7 +289,7 @@ function TaskRow({
   const swipeCardRef = useRef(null);
   const swipeStartX = useRef(0);
   const swipeStartOffset = useRef(0);
-  const SWIPE_MAX = 180;
+  const SWIPE_MAX = 220;
   const SWIPE_THRESHOLD = 50;
 
   const applySwipe = (offset, animate) => {
@@ -388,32 +388,8 @@ function TaskRow({
       setPress("armed");
       categoryDragReady.current = true;
 
-      // 手机端长按弹出分类移动菜单；桌面端启动拖拽
-      if (isMobile && onMoveToCategory) {
-        const cats = CATEGORIES.filter((c) => c !== taskCategory);
-        if (cats.length) {
-          const menu = document.createElement('div');
-          menu.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:500;background:var(--panel);border-top:1px solid var(--border);padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;';
-          const title = document.createElement('p');
-          title.textContent = '移动到其他分类';
-          title.style.cssText = 'font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;text-align:center;';
-          menu.appendChild(title);
-          cats.forEach((cat) => {
-            const btn = document.createElement('button');
-            btn.textContent = cat;
-            btn.style.cssText = 'width:100%;height:46px;border:1px solid var(--border);border-radius:8px;background:var(--panel-inset);color:var(--text);font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit;';
-            btn.onclick = () => { document.body.removeChild(menu); onMoveToCategory(task.id, taskCategory, cat); };
-            menu.appendChild(btn);
-          });
-          const cancelBtn = document.createElement('button');
-          cancelBtn.textContent = '取消';
-          cancelBtn.style.cssText = 'width:100%;height:46px;border:none;background:transparent;color:var(--text-tertiary);font-size:14px;cursor:pointer;font-family:inherit;';
-          cancelBtn.onclick = () => document.body.removeChild(menu);
-          menu.appendChild(cancelBtn);
-          menu.onclick = (ev) => { if (ev.target === menu) document.body.removeChild(menu); };
-          document.body.appendChild(menu);
-        }
-      } else if (reorderable) {
+      // 手机端和桌面端都启动拖拽排序
+      if (reorderable) {
         dragControls.start(e);
       }
     }, LONG_PRESS_MS);
@@ -487,6 +463,39 @@ function TaskRow({
         onClick={(e) => { e.stopPropagation(); doAction(() => onToggleFavorite(task.id)); }}
         aria-label={task.favorite ? "取消收藏" : "收藏"}>
         <FiStar fill={task.favorite ? "currentColor" : "none"} />
+      </button>
+      <button className="action-btn move-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          swipeOffset.current = 0; applySwipe(0, true);
+          if (!onMoveToCategory) return;
+          const cats = CATEGORIES.filter((c) => c !== taskCategory);
+          if (!cats.length) return;
+          const menu = document.createElement('div');
+          menu.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:500;background:var(--panel);border-top:1px solid var(--border);padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;';
+          const title = document.createElement('p');
+          title.textContent = '移动到其他分类';
+          title.style.cssText = 'font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;text-align:center;';
+          menu.appendChild(title);
+          cats.forEach((cat) => {
+            const btn = document.createElement('button');
+            btn.textContent = cat;
+            btn.style.cssText = 'width:100%;height:46px;border:1px solid var(--border);border-radius:8px;background:var(--panel-inset);color:var(--text);font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit;';
+            btn.onclick = () => { document.body.removeChild(menu); onMoveToCategory(task.id, taskCategory, cat); };
+            menu.appendChild(btn);
+          });
+          const cancelBtn = document.createElement('button');
+          cancelBtn.textContent = '取消';
+          cancelBtn.style.cssText = 'width:100%;height:46px;border:none;background:transparent;color:var(--text-tertiary);font-size:14px;cursor:pointer;font-family:inherit;';
+          cancelBtn.onclick = () => document.body.removeChild(menu);
+          menu.appendChild(cancelBtn);
+          menu.onclick = (ev) => { if (ev.target === menu) document.body.removeChild(menu); };
+          document.body.appendChild(menu);
+        }}
+        aria-label="移动到其他分类">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 9l-3 3 3 3" /><path d="M9 5l3-3 3 3" /><path d="M15 19l3 3 3-3" /><path d="M19 9l3 3-3 3" /><line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" />
+        </svg>
       </button>
       <button className="action-btn edit-btn"
         onClick={(e) => { e.stopPropagation(); doAction(() => onStartEdit(task.id)); }}
@@ -685,16 +694,22 @@ function TaskRow({
       startOffset = swipeOffset.current;
     };
 
+    let raf = null;
     const onMove = (e) => {
-      const touch = e.touches[0];
-      const dx = startX - touch.clientX;
-      const newOffset = Math.max(0, Math.min(180, startOffset + dx));
-      swipeOffset.current = newOffset;
-      applySwipe(newOffset, false);
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        const touch = e.touches[0];
+        const dx = startX - touch.clientX;
+        const newOffset = Math.max(0, Math.min(220, startOffset + dx));
+        swipeOffset.current = newOffset;
+        applySwipe(newOffset, false);
+      });
     };
 
     const onEnd = () => {
-      swipeOffset.current = swipeOffset.current > 50 ? 180 : 0;
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      swipeOffset.current = swipeOffset.current > 50 ? 220 : 0;
       applySwipe(swipeOffset.current, true);
     };
 

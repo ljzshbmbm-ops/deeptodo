@@ -1890,8 +1890,6 @@ input {
   position: relative;
   z-index: 1;
   background: var(--bg);
-  transition: transform 0.2s ease;
-  will-change: transform;
 }
 
 .task-item-desktop {
