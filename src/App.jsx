@@ -86,28 +86,13 @@ function triggerHaptic() {
   }
 }
 
-function MobileDataManager({ exportData, importData }) {
-  const [open, setOpen] = useState(false);
+function MobileDataManager({ importData }) {
   return (
     <div className="panel insight-card mobile-io-card">
       <div className="panel-body" style={{ padding: '10px 18px' }}>
-        {!open ? (
-          <button className="mobile-io-main-btn" onClick={() => setOpen(true)}>
-            数据备份与恢复
-          </button>
-        ) : (
-          <div className="mobile-io-btns">
-            <button className="mobile-io-btn export-btn" onClick={() => { exportData(); setOpen(false); }}>
-              导出备份
-            </button>
-            <button className="mobile-io-btn import-btn" onClick={() => { importData(); setOpen(false); }}>
-              导入恢复
-            </button>
-            <button className="mobile-io-cancel" onClick={() => setOpen(false)}>
-              取消
-            </button>
-          </div>
-        )}
+        <button className="mobile-io-main-btn" onClick={importData}>
+          导入数据恢复
+        </button>
       </div>
     </div>
   );
@@ -314,8 +299,8 @@ function TaskRow({
   const [swipeOffset, setSwipeOffset] = useState(0);
   const swipeStartX = useRef(0);
   const swipeStartOffset = useRef(0);
-  const SWIPE_MAX = 160;
-  const SWIPE_THRESHOLD = 40;
+  const SWIPE_MAX = 180;
+  const SWIPE_THRESHOLD = 50;
 
   const handleTouchStart = (e) => {
     swipeStartX.current = e.touches[0].clientX;
@@ -1404,6 +1389,37 @@ function App() {
                   >
                     <FiBarChart2 />
                   </button>
+                  <button
+                    className="icon-btn mobile-io-trigger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const menu = document.createElement('div');
+                      menu.className = 'mobile-io-popup';
+                      menu.innerHTML = `
+                        <button class="mobile-io-popup-btn">导出备份</button>
+                        <button class="mobile-io-popup-btn">导入恢复</button>
+                        <button class="mobile-io-popup-cancel">取消</button>
+                      `;
+                      menu.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:500;background:var(--panel);border-top:1px solid var(--border);padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;';
+                      menu.querySelectorAll('.mobile-io-popup-btn').forEach((btn, i) => {
+                        btn.style.cssText = 'width:100%;height:44px;border:1px solid var(--border);border-radius:8px;background:var(--panel-inset);color:var(--text);font-size:15px;cursor:pointer;font-family:inherit;';
+                        btn.onclick = () => { document.body.removeChild(menu); i === 0 ? exportData() : importData(); };
+                      });
+                      const cancelBtn = menu.querySelector('.mobile-io-popup-cancel');
+                      cancelBtn.style.cssText = 'width:100%;height:44px;border:none;background:transparent;color:var(--text-tertiary);font-size:14px;cursor:pointer;font-family:inherit;';
+                      cancelBtn.onclick = () => document.body.removeChild(menu);
+                      menu.onclick = (ev) => { if (ev.target === menu) document.body.removeChild(menu); };
+                      document.body.appendChild(menu);
+                    }}
+                    aria-label="数据导入导出"
+                    title="导入/导出"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             ) : (
@@ -1668,7 +1684,7 @@ function App() {
             </section>
 
             <aside className={`insight-column ${isMobile && !showInsight ? 'insight-hidden' : ''}`}>
-              {isMobile && <MobileDataManager exportData={exportData} importData={importData} />}
+              {isMobile && <MobileDataManager importData={importData} />}
               <div className="panel insight-card">
                 <div className="panel-header">
                   <h3>
