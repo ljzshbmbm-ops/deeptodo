@@ -139,13 +139,13 @@ input {
 /* ─── Sidebar ─── */
 
 .sidebar {
-  width: 248px;
-  min-width: 248px;
+  width: 260px;
+  min-width: 260px;
   background: var(--sidebar);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  padding: 16px 12px;
+  padding: 20px 14px;
   z-index: 2;
   transition: background 0.25s ease, border-color 0.25s ease;
 }
@@ -193,7 +193,7 @@ input {
 
 .logo-deep {
   font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 400;
   font-style: italic;
   letter-spacing: -0.01em;
@@ -208,7 +208,7 @@ input {
 }
 
 .logo-todo {
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 700;
   letter-spacing: -0.07em;
   background: linear-gradient(
@@ -224,12 +224,12 @@ input {
 }
 
 .logo-sub {
-  font-size: 10.5px;
+  font-size: 11px;
   font-style: italic;
   color: var(--text-tertiary);
-  line-height: 1.45;
+  line-height: 1.5;
   letter-spacing: 0.01em;
-  max-width: 168px;
+  max-width: 180px;
 }
 
 .logo-sub::before {
@@ -249,12 +249,13 @@ input {
 .sidebar-label {
   display: block;
   font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-tertiary);
-  padding: 0 10px;
-  margin-bottom: 8px;
+  padding: 2px 10px;
+  margin-bottom: 10px;
+  margin-top: 6px;
 }
 
 .menu {
@@ -266,14 +267,14 @@ input {
 .menu button {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   width: 100%;
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -281,7 +282,7 @@ input {
 }
 
 .menu button .nav-icon {
-  font-size: 15px;
+  font-size: 17px;
   opacity: 0.7;
   flex-shrink: 0;
 }
@@ -829,6 +830,15 @@ input {
 .task-card.expanded {
   background: var(--panel-hover);
   border-color: var(--border-subtle);
+}
+
+.task-card.full-expand {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+}
+
+.full-expand-notes {
+  min-height: 200px !important;
 }
 
 .drag-handle {
@@ -1460,6 +1470,33 @@ input {
   color: var(--accent);
 }
 
+.completed-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--panel-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.done-mini {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--success);
+  flex-shrink: 0;
+}
+
+.completed-cat {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  background: var(--bg-elevated);
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
 /* ─── Celebrate modal ─── */
 
 .celebrate-overlay {
@@ -1862,15 +1899,15 @@ input {
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    padding: 16px;
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    padding: 20px 18px;
+    padding-bottom: calc(100px + env(safe-area-inset-bottom));
   }
 
   .page-header {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 14px;
+    margin-bottom: 24px;
   }
 
   .page-header-main {
@@ -1898,8 +1935,8 @@ input {
 
   .search-bar {
     width: 100%;
-    padding: 12px 14px;
-    margin-bottom: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
     border-radius: var(--radius-lg);
   }
 
@@ -1917,14 +1954,14 @@ input {
     flex-direction: column;
     width: 100%;
     gap: 10px;
-    padding: 10px;
-    margin-bottom: 20px;
+    padding: 12px;
+    margin-bottom: 24px;
     border-radius: var(--radius-lg);
   }
 
   .composer input {
     width: 100%;
-    padding: 14px 12px;
+    padding: 16px 14px;
     font-size: 16px;
   }
 
@@ -1938,7 +1975,7 @@ input {
   .workspace-grid {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 18px;
     width: 100%;
   }
 
@@ -1949,7 +1986,11 @@ input {
   }
 
   .insight-column {
-    gap: 12px;
+    gap: 14px;
+  }
+
+  .task-list {
+    gap: 8px;
   }
 
   .panel {
@@ -1969,8 +2010,8 @@ input {
   }
 
   .task-card {
-    padding: 14px 12px;
-    gap: 12px;
+    padding: 16px 14px;
+    gap: 14px;
     border-radius: var(--radius-md);
   }
 

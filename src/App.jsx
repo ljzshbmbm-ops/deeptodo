@@ -260,6 +260,7 @@ function TaskRow({
   reorderable = true,
   isMobile = false,
   editing = false,
+  fullExpand = false,
   editInputRef,
   onToggleExpand,
   onToggleComplete,
@@ -365,7 +366,7 @@ function TaskRow({
   const inner = (
     <>
       <div
-        className={`task-card ${expanded ? "expanded" : ""}`}
+        className={`task-card ${expanded ? "expanded" : ""} ${fullExpand ? "full-expand" : ""}`}
         onClick={(e) => {
           if (
             editing ||
@@ -376,6 +377,18 @@ function TaskRow({
             return;
           }
           onToggleExpand(task.id);
+        }}
+        onDoubleClick={(e) => {
+          if (
+            e.target.closest(
+              "button, input, textarea, label, .check, .due-date-wrap, .drag-handle"
+            )
+          ) {
+            return;
+          }
+          e.preventDefault();
+          // 双击切换到全展开模式
+          onToggleExpand(task.id, true);
         }}
       >
         <span
@@ -548,10 +561,20 @@ function TaskRow({
             onClick={(e) => e.stopPropagation()}
           >
             <textarea
-              className="task-notes-input"
+              className={`task-notes-input ${fullExpand ? "full-expand-notes" : ""}`}
               placeholder="添加备注或任务详情…"
               value={task.notes || ""}
               onChange={(e) => onUpdateNotes(task.id, e.target.value)}
+              ref={(el) => {
+                if (el) {
+                  el.style.height = "auto";
+                  el.style.height = Math.max(el.scrollHeight, fullExpand ? 200 : 72) + "px";
+                }
+              }}
+              onInput={(e) => {
+                e.target.style.height = "auto";
+                e.target.style.height = Math.max(e.target.scrollHeight, fullExpand ? 200 : 72) + "px";
+              }}
             />
           </motion.div>
         )}
@@ -599,6 +622,7 @@ function App() {
   const [commandQuery, setCommandQuery] = useState("");
   const [expandedIds, setExpandedIds] = useState(new Set());
   const [editingId, setEditingId] = useState(null);
+  const [fullExpandId, setFullExpandId] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [dropCategory, setDropCategory] = useState(null);
   const [toast, setToast] = useState(null);
@@ -766,11 +790,22 @@ function App() {
 
   const dismissToast = () => setToast(null);
 
-  const toggleExpand = (id) => {
+  const toggleExpand = (id, forceFull = false) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (forceFull) {
+        // 双击：强制展开并进入全展开模式
+        next.add(id);
+        setFullExpandId(id);
+      } else if (next.has(id)) {
+        // 单击已展开的：收起
+        next.delete(id);
+        setFullExpandId(null);
+      } else {
+        // 单击未展开的：展开
+        next.add(id);
+        setFullExpandId(null);
+      }
       return next;
     });
   };
@@ -787,6 +822,16 @@ function App() {
   const collapseAllTasks = () => {
     setExpandedIds(new Set());
   };
+
+  const recentlyCompleted = useMemo(() => {
+    return CATEGORIES.flatMap((cat) =>
+      (todos[cat] || [])
+        .filter((t) => t.completed)
+        .map((t) => ({ ...t, category: cat }))
+    )
+      .sort((a, b) => b.id - a.id)
+      .slice(0, 5);
+  }, [todos]);
 
   const isAllExpanded =
     listCount > 0 &&
@@ -1351,7 +1396,8 @@ function App() {
                           editing={editingId === task.id}
                           editInputRef={editInputRef}
                           expanded={expandedIds.has(task.id)}
-                            onToggleExpand={(id) => toggleExpand(id)}
+                          fullExpand={fullExpandId === task.id}
+                            onToggleExpand={(id, ff) => toggleExpand(id, ff)}
                             onToggleComplete={(id) =>
                               toggleComplete(id, cat)
                             }
@@ -1526,15 +1572,26 @@ function App() {
                   <h3>最近活动</h3>
                 </div>
                 <div className="panel-body">
-                  {completedCount > 0 ? (
-                    <p className="activity-summary">
-                      已完成 <strong>{completedCount}</strong> 项任务
-                      {totalCount > 0 && (
-                        <span>（共 {totalCount} 项）</span>
-                      )}
-                    </p>
-                  ) : (
-                    <p className="activity-empty">暂无已完成任务</p>
+                  <p className="activity-summary">
+                    已完成 <strong>{completedCount}</strong> 项
+                    {totalCount > 0 && (
+                      <span>（共 {totalCount} 项）</span>
+                    )}
+                  </p>
+
+                  {recentlyCompleted.length > 0 && (
+                    <div className="deleted-section">
+                      <p className="deleted-title">最近已完成</p>
+                      <ul className="deleted-list">
+                        {recentlyCompleted.map((t) => (
+                          <li key={t.id} className="completed-item">
+                            <span className="check done-mini" />
+                            <span className="deleted-text">{t.text}</span>
+                            <span className="completed-cat">{t.category}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
 
                   {deletedHistory.length > 0 && (
@@ -1557,6 +1614,10 @@ function App() {
                         ))}
                       </ul>
                     </div>
+                  )}
+
+                  {completedCount === 0 && deletedHistory.length === 0 && (
+                    <p className="activity-empty">暂无活动记录</p>
                   )}
                 </div>
               </div>
