@@ -274,6 +274,9 @@ function TaskRow({
   onSaveEdit,
   onCancelEdit,
   onMoveToCategory,
+  onShowMoveMenu,
+  swipeOpen,
+  onSwipeToggle,
   onDragStart,
   onDragEnd,
   isDragTarget,
@@ -284,8 +287,8 @@ function TaskRow({
   const pressOrigin = useRef({ x: 0, y: 0 });
   const categoryDragReady = useRef(false);
 
-  // 手机端操作面板开关
-  const [actionsOpen, setActionsOpen] = useState(false);
+  // 手机端滑动
+  const swipeTouchX = useRef(0);
 
   const [pressState, setPressState] = useState("idle");
   const pressStateRef = useRef("idle");
@@ -369,12 +372,10 @@ function TaskRow({
     .join(" ");
 
   // 操作按钮（手机端用于左滑，桌面端正常显示）
-  const closeActions = () => setActionsOpen(false);
-
   const actionButtons = (
     <div className="task-actions">
       <button className={`action-btn pin-btn ${task.pinned ? "active" : ""}`}
-        onClick={(e) => { e.stopPropagation(); closeActions(); onTogglePin(task.id); }}
+        onClick={(e) => { e.stopPropagation(); onSwipeToggle(false); onTogglePin(task.id); }}
         aria-label={task.pinned ? "取消置顶" : "置顶"}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="17" x2="12" y2="22" />
@@ -383,14 +384,14 @@ function TaskRow({
         </svg>
       </button>
       <button className={`action-btn fav-btn ${task.favorite ? "active" : ""}`}
-        onClick={(e) => { e.stopPropagation(); closeActions(); onToggleFavorite(task.id); }}
+        onClick={(e) => { e.stopPropagation(); onSwipeToggle(false); onToggleFavorite(task.id); }}
         aria-label={task.favorite ? "取消收藏" : "收藏"}>
         <FiStar fill={task.favorite ? "currentColor" : "none"} />
       </button>
       <button className="action-btn move-btn"
         onClick={(e) => {
           e.stopPropagation();
-          closeActions();
+          onSwipeToggle(false);
           if (!onMoveToCategory) return;
           const cats = CATEGORIES.filter((c) => c !== taskCategory);
           if (!cats.length) return;
@@ -421,12 +422,12 @@ function TaskRow({
         </svg>
       </button>
       <button className="action-btn edit-btn"
-        onClick={(e) => { e.stopPropagation(); closeActions(); onStartEdit(task.id); }}
+        onClick={(e) => { e.stopPropagation(); onSwipeToggle(false); onStartEdit(task.id); }}
         aria-label="编辑任务">
         <FiEdit2 />
       </button>
       <button className="action-btn delete-btn"
-        onClick={(e) => { e.stopPropagation(); closeActions(); onDelete(task.id); }}
+        onClick={(e) => { e.stopPropagation(); onSwipeToggle(false); onDelete(task.id); }}
         aria-label="删除任务">
         <FiTrash2 />
       </button>
@@ -601,24 +602,20 @@ function TaskRow({
   );
 
   const wrapped = isMobile ? (
-    <div className="task-row-mobile">
-      <div className={`mobile-actions-panel ${actionsOpen ? 'open' : ''}`}>
+    <div
+      className="swipe-wrap"
+      onTouchStart={(e) => { swipeTouchX.current = e.touches[0].clientX; }}
+      onTouchEnd={(e) => {
+        const dx = swipeTouchX.current - e.changedTouches[0].clientX;
+        if (Math.abs(dx) > 40) onSwipeToggle(dx > 0);
+      }}
+    >
+      <div className="swipe-actions-bg">
         {actionButtons}
       </div>
-      <div className="mobile-task-cover" onClick={() => setActionsOpen(false)}>
+      <div className={`swipe-card ${swipeOpen ? 'swipe-open' : ''}`} onClick={() => { if (swipeOpen) onSwipeToggle(false); }}>
         {inner}
       </div>
-      <button
-        className="mobile-more-btn"
-        onClick={(e) => { e.stopPropagation(); setActionsOpen((p) => !p); }}
-        aria-label="更多操作"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="12" cy="5" r="2" />
-          <circle cx="12" cy="12" r="2" />
-          <circle cx="12" cy="19" r="2" />
-        </svg>
-      </button>
     </div>
   ) : (
     <div className="task-item-desktop">
@@ -687,6 +684,8 @@ function App() {
   const editInputRef = useRef(null);
   const undoDeleteRef = useRef(null);
   const [deletedHistory, setDeletedHistory] = useState([]);
+  const [swipeTaskId, setSwipeTaskId] = useState(null);
+  const [moveMenuTask, setMoveMenuTask] = useState(null);
 
   const isTodayView = category === VIEW_TODAY;
 
@@ -1629,6 +1628,9 @@ function App() {
                             onStartEdit={(id) => startEdit(id)}
                             onSaveEdit={(id, text) => saveEdit(id, text, cat)}
                             onCancelEdit={cancelEdit}
+                            onShowMoveMenu={(t, c) => setMoveMenuTask({ task: t, cat: c })}
+                            swipeOpen={swipeTaskId === `${cat}-${task.id}`}
+                            onSwipeToggle={(open) => setSwipeTaskId(open ? `${cat}-${task.id}` : null)}
                             onMoveToCategory={moveTaskToCategory}
                             onDragStart={handleDragStart}
                             onDragEnd={handleDragEnd}
@@ -1674,6 +1676,9 @@ function App() {
                           onStartEdit={(id) => startEdit(id)}
                           onSaveEdit={(id, text) => saveEdit(id, text, category)}
                           onCancelEdit={cancelEdit}
+                            onShowMoveMenu={(t, c) => setMoveMenuTask({ task: t, cat: c })}
+                            swipeOpen={swipeTaskId === `${cat}-${task.id}`}
+                            onSwipeToggle={(open) => setSwipeTaskId(open ? `${cat}-${task.id}` : null)}
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           isDragTarget={
@@ -1897,6 +1902,29 @@ function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {moveMenuTask && (
+        <div className="move-overlay" onClick={() => setMoveMenuTask(null)}>
+          <div className="move-menu" onClick={(e) => e.stopPropagation()}>
+            <p className="move-menu-title">移动到其他分类</p>
+            {CATEGORIES.filter((c) => c !== moveMenuTask.cat).map((cat) => (
+              <button
+                key={cat}
+                className="move-menu-btn"
+                onClick={() => {
+                  moveTaskToCategory(moveMenuTask.task.id, moveMenuTask.cat, cat);
+                  setMoveMenuTask(null);
+                }}
+              >
+                {cat}
+              </button>
+            ))}
+            <button className="move-menu-cancel" onClick={() => setMoveMenuTask(null)}>
+              取消
+            </button>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {commandOpen && (
