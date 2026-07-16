@@ -111,9 +111,14 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  overflow: hidden;
   -webkit-font-smoothing: antialiased;
   transition: background 0.25s ease, color 0.25s ease;
+}
+
+@media (min-width: 769px) {
+  body {
+    overflow: hidden;
+  }
 }
 
 button,
@@ -1858,6 +1863,47 @@ input {
   display: none;
 }
 
+/* ─── 手机端左滑操作 ─── */
+
+.swipe-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+
+.swipe-actions {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+  gap: 4px;
+  background: var(--panel-inset);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.swipe-actions .task-actions {
+  opacity: 1;
+}
+
+.swipe-card {
+  position: relative;
+  z-index: 1;
+  transition: transform 0.2s ease;
+}
+
+.task-item-desktop {
+  display: flex;
+  align-items: flex-start;
+}
+
+.task-item-desktop .task-actions {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
 /* ─── Responsive ─── */
 
 @media (max-width: 1100px) {
@@ -2104,19 +2150,25 @@ input {
     padding: 4px;
     margin-bottom: 16px;
     flex-direction: row;
+    align-items: center;
   }
 
   .composer-mobile input {
-    padding: 10px 12px;
+    padding: 14px 14px;
     font-size: 15px;
+    align-self: center;
   }
 
   .composer-mobile .composer-add {
-    width: 40px;
-    min-width: 40px;
-    height: 38px;
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
     padding: 0;
     border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
   }
 
   .composer-mobile .composer-add svg {

@@ -283,6 +283,34 @@ function TaskRow({
   const pressOrigin = useRef({ x: 0, y: 0 });
   const categoryDragReady = useRef(false);
 
+  // 手机端左滑手势
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const swipeStartX = useRef(0);
+  const swipeStartOffset = useRef(0);
+  const SWIPE_MAX = 160;
+  const SWIPE_THRESHOLD = 40;
+
+  const handleTouchStart = (e) => {
+    swipeStartX.current = e.touches[0].clientX;
+    swipeStartOffset.current = swipeOffset;
+  };
+
+  const handleTouchMove = (e) => {
+    const dx = swipeStartX.current - e.touches[0].clientX;
+    const newOffset = Math.max(0, Math.min(SWIPE_MAX, swipeStartOffset.current + dx));
+    setSwipeOffset(newOffset);
+  };
+
+  const handleTouchEnd = () => {
+    if (swipeOffset > SWIPE_THRESHOLD) {
+      setSwipeOffset(SWIPE_MAX);
+    } else {
+      setSwipeOffset(0);
+    }
+  };
+
+  const closeSwipe = () => setSwipeOffset(0);
+
   const [pressState, setPressState] = useState("idle");
   const pressStateRef = useRef("idle");
 
@@ -362,6 +390,36 @@ function TaskRow({
   ]
     .filter(Boolean)
     .join(" ");
+
+  // 操作按钮（手机端用于左滑，桌面端正常显示）
+  const actionButtons = (
+    <div className="task-actions">
+      <button className={`action-btn pin-btn ${task.pinned ? "active" : ""}`}
+        onClick={(e) => { e.stopPropagation(); closeSwipe(); onTogglePin(task.id); }}
+        aria-label={task.pinned ? "取消置顶" : "置顶"}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="17" x2="12" y2="22" />
+          <path d="M5 17h14v-6.5a3.5 3.5 0 0 0-3.5-3.5h-7A3.5 3.5 0 0 0 5 10.5V17z" />
+          <path d="M12 2v5" />
+        </svg>
+      </button>
+      <button className={`action-btn fav-btn ${task.favorite ? "active" : ""}`}
+        onClick={(e) => { e.stopPropagation(); closeSwipe(); onToggleFavorite(task.id); }}
+        aria-label={task.favorite ? "取消收藏" : "收藏"}>
+        <FiStar fill={task.favorite ? "currentColor" : "none"} />
+      </button>
+      <button className="action-btn edit-btn"
+        onClick={(e) => { e.stopPropagation(); closeSwipe(); onStartEdit(task.id); }}
+        aria-label="编辑任务">
+        <FiEdit2 />
+      </button>
+      <button className="action-btn delete-btn"
+        onClick={(e) => { e.stopPropagation(); closeSwipe(); onDelete(task.id); }}
+        aria-label="删除任务">
+        <FiTrash2 />
+      </button>
+    </div>
+  );
 
   const inner = (
     <>
@@ -496,58 +554,6 @@ function TaskRow({
           </div>
         </div>
 
-        <div className="task-actions">
-          <button
-            className={`action-btn pin-btn ${task.pinned ? "active" : ""}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onTogglePin(task.id);
-            }}
-            aria-label={task.pinned ? "取消置顶" : "置顶"}
-            title={task.pinned ? "取消置顶" : "置顶"}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="17" x2="12" y2="22" />
-              <path d="M5 17h14v-6.5a3.5 3.5 0 0 0-3.5-3.5h-7A3.5 3.5 0 0 0 5 10.5V17z" />
-              <path d="M12 2v5" />
-            </svg>
-          </button>
-          <button
-            className={`action-btn fav-btn ${task.favorite ? "active" : ""}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleFavorite(task.id);
-            }}
-            aria-label={task.favorite ? "取消收藏" : "收藏"}
-            title={task.favorite ? "取消收藏" : "收藏"}
-          >
-            <FiStar
-              fill={task.favorite ? "currentColor" : "none"}
-            />
-          </button>
-          <button
-            className="action-btn edit-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              onStartEdit(task.id);
-            }}
-            aria-label="编辑任务"
-            title="编辑任务"
-          >
-            <FiEdit2 />
-          </button>
-          <button
-            className="action-btn delete-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(task.id);
-            }}
-            aria-label="删除任务"
-            title="删除任务"
-          >
-            <FiTrash2 />
-          </button>
-        </div>
       </div>
 
       <AnimatePresence>
@@ -582,8 +588,32 @@ function TaskRow({
     </>
   );
 
+  const wrapped = isMobile ? (
+    <div
+      className="swipe-container"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div className="swipe-actions">
+        {actionButtons}
+      </div>
+      <div
+        className="swipe-card"
+        style={{ transform: `translateX(-${swipeOffset}px)` }}
+      >
+        {inner}
+      </div>
+    </div>
+  ) : (
+    <div className="task-item-desktop">
+      {inner}
+      {actionButtons}
+    </div>
+  );
+
   if (!reorderable) {
-    return <div className={taskItemClass}>{inner}</div>;
+    return <div className={taskItemClass}>{wrapped}</div>;
   }
 
   return (
@@ -601,7 +631,7 @@ function TaskRow({
         categoryDragReady.current = false;
       }}
     >
-      {inner}
+      {wrapped}
     </Reorder.Item>
   );
 }
@@ -1611,6 +1641,20 @@ function App() {
             </section>
 
             <aside className={`insight-column ${isMobile && !showInsight ? 'insight-hidden' : ''}`}>
+              {isMobile && (
+                <div className="panel insight-card mobile-io-card">
+                  <div className="panel-body" style={{ padding: '12px 18px' }}>
+                    <div className="mobile-io-btns">
+                      <button className="mobile-io-btn" onClick={exportData}>
+                        导出数据备份
+                      </button>
+                      <button className="mobile-io-btn" onClick={importData}>
+                        导入数据恢复
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="panel insight-card">
                 <div className="panel-header">
                   <h3>
@@ -1759,20 +1803,6 @@ function App() {
                 </div>
               </div>
 
-              {isMobile && (
-                <div className="panel insight-card mobile-io-card">
-                  <div className="panel-body" style={{ padding: '12px 18px' }}>
-                    <div className="mobile-io-btns">
-                      <button className="mobile-io-btn" onClick={exportData}>
-                        导出数据备份
-                      </button>
-                      <button className="mobile-io-btn" onClick={importData}>
-                        导入数据恢复
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </aside>
           </div>
         </div>
