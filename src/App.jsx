@@ -1677,8 +1677,8 @@ function App() {
                           onSaveEdit={(id, text) => saveEdit(id, text, category)}
                           onCancelEdit={cancelEdit}
                             onShowMoveMenu={(t, c) => setMoveMenuTask({ task: t, cat: c })}
-                            swipeOpen={swipeTaskId === `${cat}-${task.id}`}
-                            onSwipeToggle={(open) => setSwipeTaskId(open ? `${cat}-${task.id}` : null)}
+                            swipeOpen={swipeTaskId === task.id}
+                            onSwipeToggle={(open) => setSwipeTaskId(open ? task.id : null)}
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           isDragTarget={
