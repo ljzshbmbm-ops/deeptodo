@@ -320,6 +320,55 @@ function TaskRow({
     applySwipe(0, true);
   };
 
+  // 长按移动分类
+  const cardLongPressTimer = useRef(null);
+  const longPressPos = useRef({ x: 0, y: 0 });
+
+  const startLongPress = (e) => {
+    if (!isMobile || !onMoveToCategory) return;
+    longPressPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    cardLongPressTimer.current = setTimeout(() => {
+      triggerHaptic();
+      const cats = CATEGORIES.filter((c) => c !== taskCategory);
+      if (!cats.length) return;
+      const menu = document.createElement('div');
+      menu.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:500;background:var(--panel);border-top:1px solid var(--border);padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;';
+      const title = document.createElement('p');
+      title.textContent = '移动到其他分类';
+      title.style.cssText = 'font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;text-align:center;';
+      menu.appendChild(title);
+      cats.forEach((cat) => {
+        const btn = document.createElement('button');
+        btn.textContent = cat;
+        btn.style.cssText = 'width:100%;height:44px;border:1px solid var(--border);border-radius:8px;background:var(--panel-inset);color:var(--text);font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit;';
+        btn.onclick = () => { document.body.removeChild(menu); onMoveToCategory(task.id, taskCategory, cat); };
+        menu.appendChild(btn);
+      });
+      const cancel = document.createElement('button');
+      cancel.textContent = '取消';
+      cancel.style.cssText = 'width:100%;height:44px;border:none;background:transparent;color:var(--text-tertiary);font-size:14px;cursor:pointer;font-family:inherit;';
+      cancel.onclick = () => document.body.removeChild(menu);
+      menu.appendChild(cancel);
+      menu.onclick = (ev) => { if (ev.target === menu) document.body.removeChild(menu); };
+      document.body.appendChild(menu);
+      closeSwipe();
+    }, 600);
+  };
+
+  const cancelLongPress = () => {
+    if (cardLongPressTimer.current) {
+      clearTimeout(cardLongPressTimer.current);
+      cardLongPressTimer.current = null;
+    }
+  };
+
+  const checkLongPressMove = (e) => {
+    if (!cardLongPressTimer.current) return;
+    const dx = Math.abs(e.touches[0].clientX - longPressPos.current.x);
+    const dy = Math.abs(e.touches[0].clientY - longPressPos.current.y);
+    if (dx > 10 || dy > 10) cancelLongPress();
+  };
+
   const [pressState, setPressState] = useState("idle");
   const pressStateRef = useRef("idle");
 
@@ -457,33 +506,10 @@ function TaskRow({
           // 双击切换到全展开模式
           onToggleExpand(task.id, true);
         }}
-        onContextMenu={(e) => {
-          if (!isMobile) return;
-          e.preventDefault();
-          closeSwipe();
-          const cats = CATEGORIES.filter((c) => c !== taskCategory);
-          if (!cats.length || !onMoveToCategory) return;
-          const menu = document.createElement('div');
-          menu.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:500;background:var(--panel);border-top:1px solid var(--border);padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;';
-          const title = document.createElement('p');
-          title.textContent = '移动到其他分类';
-          title.style.cssText = 'font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;text-align:center;';
-          menu.appendChild(title);
-          cats.forEach((cat) => {
-            const btn = document.createElement('button');
-            btn.textContent = cat;
-            btn.style.cssText = 'width:100%;height:44px;border:1px solid var(--border);border-radius:8px;background:var(--panel-inset);color:var(--text);font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit;';
-            btn.onclick = () => { document.body.removeChild(menu); onMoveToCategory(task.id, taskCategory, cat); };
-            menu.appendChild(btn);
-          });
-          const cancel = document.createElement('button');
-          cancel.textContent = '取消';
-          cancel.style.cssText = 'width:100%;height:44px;border:none;background:transparent;color:var(--text-tertiary);font-size:14px;cursor:pointer;font-family:inherit;';
-          cancel.onclick = () => document.body.removeChild(menu);
-          menu.appendChild(cancel);
-          menu.onclick = (ev) => { if (ev.target === menu) document.body.removeChild(menu); };
-          document.body.appendChild(menu);
-        }}
+        onTouchStart={(e) => { if (isMobile) startLongPress(e); }}
+        onTouchMove={(e) => { if (isMobile) checkLongPressMove(e); }}
+        onTouchEnd={cancelLongPress}
+        onTouchCancel={cancelLongPress}
       >
         <span
           className="drag-handle"
@@ -631,7 +657,12 @@ function TaskRow({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="swipe-actions">
+      <div
+        className="swipe-actions"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {actionButtons}
       </div>
       <div
