@@ -884,10 +884,10 @@ input {
 
 .task-text {
   display: inline;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 400;
   color: var(--text);
-  line-height: 1.4;
+  line-height: 1.45;
   word-break: break-word;
 }
 
@@ -926,7 +926,7 @@ input {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   padding: 3px 8px;
   border-radius: 4px;
@@ -965,7 +965,7 @@ input {
 }
 
 .has-notes {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-tertiary);
 }
 
@@ -1001,7 +1001,7 @@ input {
   border-radius: var(--radius-sm);
   background: var(--panel-inset);
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   resize: vertical;
   outline: none;
@@ -1050,11 +1050,11 @@ input {
 
 .priority-tag {
   flex-shrink: 0;
-  min-width: 28px;
-  padding: 2px 7px;
+  min-width: 30px;
+  padding: 3px 8px;
   border: none;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s ease, transform 0.15s ease;
@@ -1986,13 +1986,13 @@ input {
   }
 
   .priority-tag {
-    min-width: 32px;
-    padding: 4px 9px;
-    font-size: 12px;
+    min-width: 34px;
+    padding: 5px 10px;
+    font-size: 13px;
   }
 
   .task-text {
-    font-size: 16px;
+    font-size: 17px;
   }
 
   .task-actions {
@@ -2038,7 +2038,7 @@ input {
   }
 
   .due-date-wrap {
-    font-size: 12px;
+    font-size: 13px;
     padding: 5px 10px;
   }
 
@@ -2048,7 +2048,7 @@ input {
   }
 
   .task-notes-input {
-    font-size: 16px;
+    font-size: 17px;
     min-height: 88px;
   }
 

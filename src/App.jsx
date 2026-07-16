@@ -597,8 +597,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
-  const [expandedId, setExpandedId] = useState(null);
-  const [expandAll, setExpandAll] = useState(false);
+  const [expandedIds, setExpandedIds] = useState(new Set());
   const [editingId, setEditingId] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [dropCategory, setDropCategory] = useState(null);
@@ -767,6 +766,36 @@ function App() {
 
   const dismissToast = () => setToast(null);
 
+  const toggleExpand = (id) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const expandAllTasks = () => {
+    const list = isSearching
+      ? (searchResults || []).map((x) => x.task.id)
+      : isTodayView
+        ? (todayTaskList || []).map((x) => x.task.id)
+        : (sortedCategoryTodos || []).map((t) => t.id);
+    setExpandedIds(new Set(list));
+  };
+
+  const collapseAllTasks = () => {
+    setExpandedIds(new Set());
+  };
+
+  const isAllExpanded =
+    listCount > 0 &&
+    ((isSearching
+      ? (searchResults || []).every((x) => expandedIds.has(x.task.id))
+      : isTodayView
+        ? (todayTaskList || []).every((x) => expandedIds.has(x.task.id))
+        : (sortedCategoryTodos || []).every((t) => expandedIds.has(t.id))));
+
   const startEdit = (id) => {
     setEditingId(id);
     // 等 DOM 更新后聚焦
@@ -835,7 +864,7 @@ function App() {
 
     // 从列表移除
     updateCategory(targetCat, (list) => list.filter((t) => t.id !== id));
-    if (expandedId === id) setExpandedId(null);
+    setExpandedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
 
     // 存储撤销信息
     undoDeleteRef.current = {
@@ -983,7 +1012,7 @@ function App() {
       [toCat]: [...prev[toCat], task],
     }));
 
-    if (expandedId === taskId) setExpandedId(null);
+    setExpandedIds((prev) => { const next = new Set(prev); next.delete(taskId); return next; });
     showToast(`已移动到 ${toCat}`);
   };
 
@@ -1274,13 +1303,13 @@ function App() {
                     <button
                       className="expand-all-btn"
                       onClick={() => {
-                        setExpandAll((prev) => !prev);
-                        setExpandedId(null);
+                        if (isAllExpanded) collapseAllTasks();
+                        else expandAllTasks();
                       }}
-                      title={expandAll ? "收起全部备注" : "展开全部备注"}
+                      title={isAllExpanded ? "收起全部备注" : "展开全部备注"}
                     >
-                      {expandAll ? "收起全部" : "展开全部"}
-                      {expandAll ? <FiChevronUp /> : <FiChevronDown />}
+                      {isAllExpanded ? "收起全部" : "展开全部"}
+                      {isAllExpanded ? <FiChevronUp /> : <FiChevronDown />}
                     </button>
                   )}
                   <span className="panel-badge">
@@ -1321,12 +1350,8 @@ function App() {
                           isMobile={isMobile}
                           editing={editingId === task.id}
                           editInputRef={editInputRef}
-                          expanded={expandAll || expandedId === task.id}
-                            onToggleExpand={(id) =>
-                              setExpandedId((prev) =>
-                                prev === id ? null : id
-                              )
-                            }
+                          expanded={expandedIds.has(task.id)}
+                            onToggleExpand={(id) => toggleExpand(id)}
                             onToggleComplete={(id) =>
                               toggleComplete(id, cat)
                             }
@@ -1369,12 +1394,8 @@ function App() {
                           isMobile={isMobile}
                           editing={editingId === task.id}
                           editInputRef={editInputRef}
-                          expanded={expandedId === task.id}
-                          onToggleExpand={(id) =>
-                            setExpandedId((prev) =>
-                              prev === id ? null : id
-                            )
-                          }
+                          expanded={expandedIds.has(task.id)}
+                          onToggleExpand={(id) => toggleExpand(id)}
                           onToggleComplete={(id) =>
                             toggleComplete(id, category)
                           }
