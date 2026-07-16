@@ -86,18 +86,6 @@ function triggerHaptic() {
   }
 }
 
-function MobileDataManager({ importData }) {
-  return (
-    <div className="panel insight-card mobile-io-card">
-      <div className="panel-body" style={{ padding: '10px 18px' }}>
-        <button className="mobile-io-main-btn" onClick={importData}>
-          导入数据恢复
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function GridMenuIcon() {
   return (
     <svg
@@ -285,6 +273,7 @@ function TaskRow({
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
+  onMoveToCategory,
   onDragStart,
   onDragEnd,
   isDragTarget,
@@ -295,33 +284,41 @@ function TaskRow({
   const pressOrigin = useRef({ x: 0, y: 0 });
   const categoryDragReady = useRef(false);
 
-  // 手机端左滑手势
-  const [swipeOffset, setSwipeOffset] = useState(0);
+  // 手机端左滑手势（直接操作DOM，不触发React渲染）
+  const swipeOffset = useRef(0);
+  const swipeCardRef = useRef(null);
   const swipeStartX = useRef(0);
   const swipeStartOffset = useRef(0);
   const SWIPE_MAX = 180;
   const SWIPE_THRESHOLD = 50;
 
+  const applySwipe = (offset, animate) => {
+    if (!swipeCardRef.current) return;
+    swipeCardRef.current.style.transform = `translateX(-${offset}px)`;
+    swipeCardRef.current.style.transition = animate ? 'transform 0.2s ease' : 'none';
+  };
+
   const handleTouchStart = (e) => {
     swipeStartX.current = e.touches[0].clientX;
-    swipeStartOffset.current = swipeOffset;
+    swipeStartOffset.current = swipeOffset.current;
   };
 
   const handleTouchMove = (e) => {
     const dx = swipeStartX.current - e.touches[0].clientX;
     const newOffset = Math.max(0, Math.min(SWIPE_MAX, swipeStartOffset.current + dx));
-    setSwipeOffset(newOffset);
+    swipeOffset.current = newOffset;
+    applySwipe(newOffset, false);
   };
 
   const handleTouchEnd = () => {
-    if (swipeOffset > SWIPE_THRESHOLD) {
-      setSwipeOffset(SWIPE_MAX);
-    } else {
-      setSwipeOffset(0);
-    }
+    swipeOffset.current = swipeOffset.current > SWIPE_THRESHOLD ? SWIPE_MAX : 0;
+    applySwipe(swipeOffset.current, true);
   };
 
-  const closeSwipe = () => setSwipeOffset(0);
+  const closeSwipe = () => {
+    swipeOffset.current = 0;
+    applySwipe(0, true);
+  };
 
   const [pressState, setPressState] = useState("idle");
   const pressStateRef = useRef("idle");
@@ -459,6 +456,33 @@ function TaskRow({
           e.preventDefault();
           // 双击切换到全展开模式
           onToggleExpand(task.id, true);
+        }}
+        onContextMenu={(e) => {
+          if (!isMobile) return;
+          e.preventDefault();
+          closeSwipe();
+          const cats = CATEGORIES.filter((c) => c !== taskCategory);
+          if (!cats.length || !onMoveToCategory) return;
+          const menu = document.createElement('div');
+          menu.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:500;background:var(--panel);border-top:1px solid var(--border);padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;';
+          const title = document.createElement('p');
+          title.textContent = '移动到其他分类';
+          title.style.cssText = 'font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;text-align:center;';
+          menu.appendChild(title);
+          cats.forEach((cat) => {
+            const btn = document.createElement('button');
+            btn.textContent = cat;
+            btn.style.cssText = 'width:100%;height:44px;border:1px solid var(--border);border-radius:8px;background:var(--panel-inset);color:var(--text);font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit;';
+            btn.onclick = () => { document.body.removeChild(menu); onMoveToCategory(task.id, taskCategory, cat); };
+            menu.appendChild(btn);
+          });
+          const cancel = document.createElement('button');
+          cancel.textContent = '取消';
+          cancel.style.cssText = 'width:100%;height:44px;border:none;background:transparent;color:var(--text-tertiary);font-size:14px;cursor:pointer;font-family:inherit;';
+          cancel.onclick = () => document.body.removeChild(menu);
+          menu.appendChild(cancel);
+          menu.onclick = (ev) => { if (ev.target === menu) document.body.removeChild(menu); };
+          document.body.appendChild(menu);
         }}
       >
         <span
@@ -612,7 +636,7 @@ function TaskRow({
       </div>
       <div
         className="swipe-card"
-        style={{ transform: `translateX(-${swipeOffset}px)` }}
+        ref={swipeCardRef}
       >
         {inner}
       </div>
@@ -1626,6 +1650,7 @@ function App() {
                             onStartEdit={(id) => startEdit(id)}
                             onSaveEdit={(id, text) => saveEdit(id, text, cat)}
                             onCancelEdit={cancelEdit}
+                            onMoveToCategory={moveTaskToCategory}
                             onDragStart={handleDragStart}
                             onDragEnd={handleDragEnd}
                             isDragTarget={false}
@@ -1684,7 +1709,6 @@ function App() {
             </section>
 
             <aside className={`insight-column ${isMobile && !showInsight ? 'insight-hidden' : ''}`}>
-              {isMobile && <MobileDataManager importData={importData} />}
               <div className="panel insight-card">
                 <div className="panel-header">
                   <h3>
