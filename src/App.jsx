@@ -86,6 +86,33 @@ function triggerHaptic() {
   }
 }
 
+function MobileDataManager({ exportData, importData }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="panel insight-card mobile-io-card">
+      <div className="panel-body" style={{ padding: '10px 18px' }}>
+        {!open ? (
+          <button className="mobile-io-main-btn" onClick={() => setOpen(true)}>
+            数据备份与恢复
+          </button>
+        ) : (
+          <div className="mobile-io-btns">
+            <button className="mobile-io-btn export-btn" onClick={() => { exportData(); setOpen(false); }}>
+              导出备份
+            </button>
+            <button className="mobile-io-btn import-btn" onClick={() => { importData(); setOpen(false); }}>
+              导入恢复
+            </button>
+            <button className="mobile-io-cancel" onClick={() => setOpen(false)}>
+              取消
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function GridMenuIcon() {
   return (
     <svg
@@ -1641,20 +1668,7 @@ function App() {
             </section>
 
             <aside className={`insight-column ${isMobile && !showInsight ? 'insight-hidden' : ''}`}>
-              {isMobile && (
-                <div className="panel insight-card mobile-io-card">
-                  <div className="panel-body" style={{ padding: '12px 18px' }}>
-                    <div className="mobile-io-btns">
-                      <button className="mobile-io-btn" onClick={exportData}>
-                        导出数据备份
-                      </button>
-                      <button className="mobile-io-btn" onClick={importData}>
-                        导入数据恢复
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {isMobile && <MobileDataManager exportData={exportData} importData={importData} />}
               <div className="panel insight-card">
                 <div className="panel-header">
                   <h3>

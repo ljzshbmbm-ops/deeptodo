@@ -1880,8 +1880,6 @@ input {
   align-items: center;
   padding-right: 8px;
   gap: 4px;
-  background: var(--panel-inset);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 .swipe-actions .task-actions {
@@ -1891,7 +1889,9 @@ input {
 .swipe-card {
   position: relative;
   z-index: 1;
+  background: var(--bg);
   transition: transform 0.2s ease;
+  will-change: transform;
 }
 
 .task-item-desktop {
@@ -2012,8 +2012,11 @@ input {
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding: 20px 18px;
     padding-bottom: calc(100px + env(safe-area-inset-bottom));
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
   }
 
   .page-header {
@@ -2179,13 +2182,33 @@ input {
     margin-top: -2px;
   }
 
+  .mobile-io-main-btn {
+    width: 100%;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-inset);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-family: inherit;
+  }
+
+  .mobile-io-main-btn:hover {
+    background: var(--panel-hover);
+    color: var(--text);
+  }
+
   .mobile-io-btns {
     display: flex;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
   }
 
   .mobile-io-btn {
-    flex: 1;
+    width: 100%;
     height: 34px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -2201,6 +2224,23 @@ input {
   .mobile-io-btn:hover {
     background: var(--panel-hover);
     color: var(--text);
+  }
+
+  .mobile-io-btn.export-btn {
+    background: var(--accent-muted);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .mobile-io-cancel {
+    width: 100%;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
   }
 
   .insight-hidden {
