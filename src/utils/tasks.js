@@ -67,6 +67,8 @@ export function normalizeTask(task) {
     priority: PRIORITIES.includes(task.priority) ? task.priority : "medium",
     dueDate: task.dueDate || null,
     notes: task.notes || "",
+    pinned: !!task.pinned,
+    favorite: !!task.favorite,
   };
 }
 
@@ -168,9 +170,10 @@ export function getMotivation(stats) {
 }
 
 export function sortTasks(list) {
-  const incomplete = list.filter((t) => !t.completed);
+  const pinned = list.filter((t) => !t.completed && t.pinned);
+  const active = list.filter((t) => !t.completed && !t.pinned);
   const completed = list.filter((t) => t.completed);
-  return [...incomplete, ...completed];
+  return [...pinned, ...active, ...completed];
 }
 
 export function getTodayTasks(todos) {

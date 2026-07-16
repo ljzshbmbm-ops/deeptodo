@@ -25,6 +25,9 @@ import {
   FiChevronUp,
   FiMove,
   FiX,
+  FiStar,
+  FiEdit2,
+  FiRotateCcw,
 } from "react-icons/fi";
 
 import {
@@ -256,12 +259,19 @@ function TaskRow({
   expanded,
   reorderable = true,
   isMobile = false,
+  editing = false,
+  editInputRef,
   onToggleExpand,
   onToggleComplete,
   onCyclePriority,
   onUpdateDueDate,
   onUpdateNotes,
   onDelete,
+  onTogglePin,
+  onToggleFavorite,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
   onDragStart,
   onDragEnd,
   isDragTarget,
@@ -358,6 +368,7 @@ function TaskRow({
         className={`task-card ${expanded ? "expanded" : ""}`}
         onClick={(e) => {
           if (
+            editing ||
             e.target.closest(
               "button, input, textarea, label, .check, .due-date-wrap, .drag-handle"
             )
@@ -411,11 +422,29 @@ function TaskRow({
               <span className="category-badge">{taskCategory}</span>
             )}
             <span className="task-text-wrap">
-              <span
-                className={`task-text ${task.completed ? "completed" : ""}`}
-              >
-                {task.text}
-              </span>
+              {editing ? (
+                <input
+                  ref={editInputRef}
+                  className="task-edit-input"
+                  defaultValue={task.text}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      onSaveEdit(task.id, e.target.value);
+                    } else if (e.key === "Escape") {
+                      onCancelEdit(task.id);
+                    }
+                  }}
+                  onBlur={(e) => onSaveEdit(task.id, e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <span
+                  className={`task-text ${task.completed ? "completed" : ""}`}
+                >
+                  {task.text}
+                </span>
+              )}
             </span>
           </div>
 
@@ -434,6 +463,8 @@ function TaskRow({
               />
             </label>
 
+            {task.pinned && <span className="meta-badge meta-pinned">置顶</span>}
+            {task.favorite && <span className="meta-badge meta-fav">收藏</span>}
             {task.notes ? (
               <span className="has-notes">有备注</span>
             ) : null}
@@ -452,16 +483,58 @@ function TaskRow({
           </div>
         </div>
 
-        <button
-          className="delete-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(task.id);
-          }}
-          aria-label="删除任务"
-        >
-          <FiTrash2 />
-        </button>
+        <div className="task-actions">
+          <button
+            className={`action-btn pin-btn ${task.pinned ? "active" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTogglePin(task.id);
+            }}
+            aria-label={task.pinned ? "取消置顶" : "置顶"}
+            title={task.pinned ? "取消置顶" : "置顶"}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="17" x2="12" y2="22" />
+              <path d="M5 17h14v-6.5a3.5 3.5 0 0 0-3.5-3.5h-7A3.5 3.5 0 0 0 5 10.5V17z" />
+              <path d="M12 2v5" />
+            </svg>
+          </button>
+          <button
+            className={`action-btn fav-btn ${task.favorite ? "active" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(task.id);
+            }}
+            aria-label={task.favorite ? "取消收藏" : "收藏"}
+            title={task.favorite ? "取消收藏" : "收藏"}
+          >
+            <FiStar
+              fill={task.favorite ? "currentColor" : "none"}
+            />
+          </button>
+          <button
+            className="action-btn edit-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartEdit(task.id);
+            }}
+            aria-label="编辑任务"
+            title="编辑任务"
+          >
+            <FiEdit2 />
+          </button>
+          <button
+            className="action-btn delete-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(task.id);
+            }}
+            aria-label="删除任务"
+            title="删除任务"
+          >
+            <FiTrash2 />
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -525,6 +598,7 @@ function App() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const [expandedId, setExpandedId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [dropCategory, setDropCategory] = useState(null);
   const [toast, setToast] = useState(null);
@@ -537,6 +611,8 @@ function App() {
   const inputRef = useRef();
   const mainScrollRef = useRef(null);
   const pomodoroFiredRef = useRef(false);
+  const editInputRef = useRef(null);
+  const undoDeleteRef = useRef(null);
 
   const isTodayView = category === VIEW_TODAY;
 
@@ -671,7 +747,24 @@ function App() {
     return () => window.removeEventListener("keydown", down);
   }, []);
 
-  const showToast = (msg) => setToast(msg);
+  const showToast = (message, undo) => {
+    setToast({ message, undo: undo || null, key: Date.now() });
+  };
+
+  const dismissToast = () => setToast(null);
+
+  const startEdit = (id) => {
+    setEditingId(id);
+    // 等 DOM 更新后聚焦
+    requestAnimationFrame(() => {
+      editInputRef.current?.focus();
+      editInputRef.current?.select();
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
 
   const addTask = () => {
     if (!input.trim()) return;
@@ -706,8 +799,81 @@ function App() {
   const deleteTask = (id, cat) => {
     const targetCat = resolveCat(cat);
     if (!targetCat) return;
+
+    // 先找到要删的任务，用于撤销
+    const taskToDelete = (todos[targetCat] || []).find((t) => t.id === id);
+    if (!taskToDelete) return;
+
+    // 清除之前的撤销定时器
+    if (undoDeleteRef.current) {
+      clearTimeout(undoDeleteRef.current.timer);
+    }
+
+    // 从列表移除
     updateCategory(targetCat, (list) => list.filter((t) => t.id !== id));
     if (expandedId === id) setExpandedId(null);
+
+    // 存储撤销信息
+    undoDeleteRef.current = {
+      task: taskToDelete,
+      cat: targetCat,
+      timer: null,
+    };
+
+    // 4.5 秒后真删
+    undoDeleteRef.current.timer = setTimeout(() => {
+      undoDeleteRef.current = null;
+    }, 4500);
+
+    showToast("已删除", {
+      label: "撤销",
+      action: () => {
+        // 清除定时器
+        if (undoDeleteRef.current) {
+          clearTimeout(undoDeleteRef.current.timer);
+          const { task, cat: restoreCat } = undoDeleteRef.current;
+          undoDeleteRef.current = null;
+          // 恢复任务
+          updateCategory(restoreCat, (list) =>
+            sortTasks([...list, task])
+          );
+        }
+        dismissToast();
+      },
+    });
+  };
+
+  const togglePin = (id, cat) => {
+    const targetCat = resolveCat(cat);
+    if (!targetCat) return;
+    updateCategory(targetCat, (list) =>
+      sortTasks(
+        list.map((t) =>
+          t.id === id ? { ...t, pinned: !t.pinned } : t
+        )
+      )
+    );
+  };
+
+  const toggleFavorite = (id, cat) => {
+    const targetCat = resolveCat(cat);
+    if (!targetCat) return;
+    updateCategory(targetCat, (list) =>
+      list.map((t) =>
+        t.id === id ? { ...t, favorite: !t.favorite } : t
+      )
+    );
+  };
+
+  const saveEdit = (id, text, cat) => {
+    const targetCat = resolveCat(cat);
+    if (!targetCat) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    updateCategory(targetCat, (list) =>
+      list.map((t) => (t.id === id ? { ...t, text: trimmed } : t))
+    );
+    setEditingId(null);
   };
 
   const toggleComplete = (id, cat) => {
@@ -1102,6 +1268,8 @@ function App() {
                           showCategoryBadge={isTodayView || isSearching}
                           reorderable={false}
                           isMobile={isMobile}
+                          editing={editingId === task.id}
+                          editInputRef={editInputRef}
                           expanded={expandedId === task.id}
                             onToggleExpand={(id) =>
                               setExpandedId((prev) =>
@@ -1121,6 +1289,11 @@ function App() {
                               updateNotes(id, n, cat)
                             }
                             onDelete={(id) => deleteTask(id, cat)}
+                            onTogglePin={(id) => togglePin(id, cat)}
+                            onToggleFavorite={(id) => toggleFavorite(id, cat)}
+                            onStartEdit={(id) => startEdit(id)}
+                            onSaveEdit={(id, text) => saveEdit(id, text, cat)}
+                            onCancelEdit={cancelEdit}
                             onDragStart={handleDragStart}
                             onDragEnd={handleDragEnd}
                             isDragTarget={false}
@@ -1143,6 +1316,8 @@ function App() {
                           taskCategory={category}
                           showCategoryBadge={false}
                           isMobile={isMobile}
+                          editing={editingId === task.id}
+                          editInputRef={editInputRef}
                           expanded={expandedId === task.id}
                           onToggleExpand={(id) =>
                             setExpandedId((prev) =>
@@ -1162,6 +1337,11 @@ function App() {
                             updateNotes(id, n, category)
                           }
                           onDelete={(id) => deleteTask(id, category)}
+                          onTogglePin={(id) => togglePin(id, category)}
+                          onToggleFavorite={(id) => toggleFavorite(id, category)}
+                          onStartEdit={(id) => startEdit(id)}
+                          onSaveEdit={(id, text) => saveEdit(id, text, category)}
+                          onCancelEdit={cancelEdit}
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           isDragTarget={
@@ -1277,12 +1457,22 @@ function App() {
         {toast && (
           <motion.div
             className="toast"
+            key={toast.key}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
           >
             <FiClock />
-            {toast}
+            <span className="toast-msg">{toast.message}</span>
+            {toast.undo && (
+              <button
+                className="toast-undo-btn"
+                onClick={toast.undo.action}
+              >
+                <FiRotateCcw />
+                {toast.undo.label}
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

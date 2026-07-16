@@ -797,10 +797,6 @@ input {
   border-color: var(--border-subtle);
 }
 
-.task-card:hover .delete-btn {
-  opacity: 1;
-}
-
 .task-card.expanded {
   background: var(--panel-hover);
   border-color: var(--border-subtle);
@@ -1056,8 +1052,24 @@ input {
   opacity: 0.9;
 }
 
-.delete-btn {
-  margin-top: 2px;
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.task-card:hover .task-actions {
+  opacity: 1;
+}
+
+.task-card.expanded .task-actions {
+  opacity: 1;
+}
+
+.action-btn {
   width: 28px;
   height: 28px;
   border-radius: var(--radius-xs);
@@ -1067,17 +1079,62 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
   flex-shrink: 0;
+}
+
+.action-btn:hover {
+  background: var(--panel-inset);
+  color: var(--text);
+}
+
+.pin-btn.active,
+.fav-btn.active {
+  color: var(--warning);
+  opacity: 1;
 }
 
 .delete-btn:hover {
   background: var(--priority-high-bg);
   color: var(--priority-high);
-  opacity: 1;
+}
+
+.task-edit-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs);
+  padding: 3px 8px;
+  background: var(--panel-inset);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.meta-pinned {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.meta-fav {
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .empty-state {
@@ -1431,6 +1488,36 @@ input {
 .toast svg {
   color: var(--accent);
   font-size: 18px;
+  flex-shrink: 0;
+}
+
+.toast-msg {
+  flex: 1;
+}
+
+.toast-undo-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.toast-undo-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.toast-undo-btn svg {
+  font-size: 14px;
 }
 
 /* ─── Command palette ─── */
@@ -1797,10 +1884,19 @@ input {
     font-size: 16px;
   }
 
+  .task-actions {
+    opacity: 1;
+  }
+
+  .action-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+
   .delete-btn {
     width: 40px;
     height: 40px;
-    opacity: 1;
     font-size: 16px;
   }
 
