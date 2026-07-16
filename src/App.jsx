@@ -441,10 +441,16 @@ function TaskRow({
     .join(" ");
 
   // 操作按钮（手机端用于左滑，桌面端正常显示）
+  const doAction = (fn) => {
+    swipeOffset.current = 0;
+    applySwipe(0, true);
+    fn();
+  };
+
   const actionButtons = (
     <div className="task-actions">
       <button className={`action-btn pin-btn ${task.pinned ? "active" : ""}`}
-        onClick={(e) => { e.stopPropagation(); closeSwipe(); onTogglePin(task.id); }}
+        onClick={(e) => { e.stopPropagation(); doAction(() => onTogglePin(task.id)); }}
         aria-label={task.pinned ? "取消置顶" : "置顶"}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="17" x2="12" y2="22" />
@@ -453,17 +459,17 @@ function TaskRow({
         </svg>
       </button>
       <button className={`action-btn fav-btn ${task.favorite ? "active" : ""}`}
-        onClick={(e) => { e.stopPropagation(); closeSwipe(); onToggleFavorite(task.id); }}
+        onClick={(e) => { e.stopPropagation(); doAction(() => onToggleFavorite(task.id)); }}
         aria-label={task.favorite ? "取消收藏" : "收藏"}>
         <FiStar fill={task.favorite ? "currentColor" : "none"} />
       </button>
       <button className="action-btn edit-btn"
-        onClick={(e) => { e.stopPropagation(); closeSwipe(); onStartEdit(task.id); }}
+        onClick={(e) => { e.stopPropagation(); doAction(() => onStartEdit(task.id)); }}
         aria-label="编辑任务">
         <FiEdit2 />
       </button>
       <button className="action-btn delete-btn"
-        onClick={(e) => { e.stopPropagation(); closeSwipe(); onDelete(task.id); }}
+        onClick={(e) => { e.stopPropagation(); doAction(() => onDelete(task.id)); }}
         aria-label="删除任务">
         <FiTrash2 />
       </button>
@@ -647,6 +653,8 @@ function TaskRow({
     let startOffset = 0;
 
     const onStart = (e) => {
+      // 拖拽手柄和按钮不触发滑动
+      if (e.target.closest('.drag-handle, .task-actions button, .task-actions')) return;
       const touch = e.touches[0];
       startX = touch.clientX;
       startOffset = swipeOffset.current;
