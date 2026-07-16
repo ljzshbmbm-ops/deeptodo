@@ -343,7 +343,32 @@ input {
   color: var(--text-secondary);
   line-height: 1.55;
   font-weight: 500;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.sidebar-action-btn {
+  flex: 1;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--panel-inset);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+}
+
+.sidebar-action-btn:hover {
+  background: var(--panel-hover);
+  color: var(--text);
 }
 
 .slogan-sub {
@@ -499,6 +524,26 @@ input {
   border-radius: var(--radius-md);
   min-width: 64px;
   box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.inline-stat:hover {
+  background: var(--panel-hover);
+  border-color: var(--border-strong);
+}
+
+.inline-stat.filter-active {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.inline-stat.filter-active span {
+  color: var(--accent);
 }
 
 .inline-stat strong {
@@ -512,6 +557,28 @@ input {
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.filter-clear-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs);
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.filter-clear-btn:hover {
+  background: var(--accent);
+  color: #fff;
 }
 
 .menu-today {
@@ -1985,8 +2052,47 @@ input {
     max-width: 100%;
   }
 
+  .insight-hidden {
+    display: none !important;
+  }
+
   .insight-column {
     gap: 14px;
+  }
+
+  .mobile-quick-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .mobile-quick-actions button {
+    flex: 1;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.15s ease, color 0.15s ease;
+    font-family: inherit;
+  }
+
+  .mobile-quick-actions button:hover {
+    background: var(--panel-hover);
+    color: var(--text);
+  }
+
+  .mobile-insight-toggle.active {
+    background: var(--accent-muted);
+    color: var(--accent);
+    border-color: var(--accent);
   }
 
   .task-list {

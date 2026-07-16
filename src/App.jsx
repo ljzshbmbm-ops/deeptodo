@@ -627,6 +627,8 @@ function App() {
   const [dropCategory, setDropCategory] = useState(null);
   const [toast, setToast] = useState(null);
   const [celebrateOpen, setCelebrateOpen] = useState(false);
+  const [filterMode, setFilterMode] = useState(null); // null | 'active' | 'completed'
+  const [showInsight, setShowInsight] = useState(false);
 
   const [todos, setTodos] = useState(loadTodos);
   const [seconds, setSeconds] = useState(1500);
@@ -669,11 +671,19 @@ function App() {
     );
   }, [searchQuery, todos, isSearching]);
 
-  const displayList = isSearching
-    ? searchResults
-    : isTodayView
-      ? todayTaskList
-      : sortedCategoryTodos.map((t) => ({ task: t, category }));
+  const displayList = useMemo(() => {
+    let list = isSearching
+      ? searchResults
+      : isTodayView
+        ? todayTaskList
+        : sortedCategoryTodos.map((t) => ({ task: t, category }));
+    if (filterMode === "active") {
+      list = list.filter((x) => !x.task.completed);
+    } else if (filterMode === "completed") {
+      list = list.filter((x) => x.task.completed);
+    }
+    return list;
+  }, [isSearching, searchResults, isTodayView, todayTaskList, sortedCategoryTodos, category, filterMode]);
 
   const listCount = isTodayView
     ? todayTaskList.length
@@ -862,6 +872,65 @@ function App() {
       prev.filter((h) => h.task.id !== historyEntry.task.id)
     );
     showToast("已恢复任务");
+  };
+
+  const exportData = () => {
+    const blob = new Blob([JSON.stringify({ todos, deletedHistory }, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `deeptodo-backup-${todayString()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("数据已导出为 JSON 文件");
+  };
+
+  const importData = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (data.todos) {
+            setTodos((prev) => {
+              // 合并导入的数据
+              const merged = { ...prev };
+              for (const cat of CATEGORIES) {
+                const existing = new Set((prev[cat] || []).map((t) => t.id));
+                const incoming = (data.todos[cat] || []).filter(
+                  (t) => !existing.has(t.id)
+                );
+                merged[cat] = sortTasks([...prev[cat], ...incoming.map(normalizeTask)]);
+              }
+              return merged;
+            });
+            if (data.deletedHistory) {
+              setDeletedHistory((prev) => {
+                const existingIds = new Set(prev.map((h) => h.task.id));
+                const incoming = data.deletedHistory.filter(
+                  (h) => !existingIds.has(h.task.id)
+                );
+                return [...incoming, ...prev].slice(0, 20);
+              });
+            }
+            showToast("数据已导入");
+          } else {
+            showToast("文件格式不正确");
+          }
+        } catch {
+          showToast("文件解析失败");
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   };
 
   const addTask = () => {
@@ -1194,6 +1263,14 @@ function App() {
 
         <div className="sidebar-bottom">
           <p className="slogan-quote">「专注当下，完成重要的事。」</p>
+          <div className="sidebar-actions">
+            <button className="sidebar-action-btn" onClick={exportData} title="导出数据 JSON">
+              导出数据
+            </button>
+            <button className="sidebar-action-btn" onClick={importData} title="导入数据 JSON">
+              导入数据
+            </button>
+          </div>
           <p className="slogan-sub">数据已自动保存至本地 · Ctrl+K 命令面板</p>
         </div>
       </aside>
@@ -1254,15 +1331,28 @@ function App() {
             <div className="header-meta">
               <ProgressRing value={progress} />
               <div className="header-stats-inline">
-                <div className="inline-stat">
+                <button
+                  className={`inline-stat ${filterMode === 'active' ? 'filter-active' : ''}`}
+                  onClick={() => setFilterMode(filterMode === 'active' ? null : 'active')}
+                  title="只看未完成"
+                >
                   <strong>{listCount}</strong>
                   <span>{isTodayView ? "今日" : "当前"}</span>
-                </div>
-                <div className="inline-stat">
+                </button>
+                <button
+                  className={`inline-stat ${filterMode === 'completed' ? 'filter-active' : ''}`}
+                  onClick={() => setFilterMode(filterMode === 'completed' ? null : 'completed')}
+                  title="只看已完成"
+                >
                   <strong>{categoryDone}</strong>
                   <span>已完成</span>
-                </div>
+                </button>
               </div>
+              {filterMode && (
+                <button className="filter-clear-btn" onClick={() => setFilterMode(null)}>
+                  清除筛选 <FiX />
+                </button>
+              )}
             </div>
 
             <div className="topbar-actions">
@@ -1334,6 +1424,23 @@ function App() {
                 添加
               </motion.button>
             </motion.div>
+          )}
+
+          {isMobile && (
+            <div className="mobile-quick-actions">
+              <button
+                className={`mobile-insight-toggle ${showInsight ? 'active' : ''}`}
+                onClick={() => setShowInsight((p) => !p)}
+              >
+                <FiBarChart2 /> {showInsight ? "收起面板" : "数据面板"}
+              </button>
+              <button className="mobile-export-btn" onClick={exportData}>
+                导出
+              </button>
+              <button className="mobile-import-btn" onClick={importData}>
+                导入
+              </button>
+            </div>
           )}
 
           <div className="workspace-grid">
@@ -1473,7 +1580,7 @@ function App() {
               </div>
             </section>
 
-            <aside className="insight-column">
+            <aside className={`insight-column ${isMobile && !showInsight ? 'insight-hidden' : ''}`}>
               <div className="panel insight-card">
                 <div className="panel-header">
                   <h3>
