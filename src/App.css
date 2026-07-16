@@ -2103,16 +2103,17 @@ input {
   .composer-mobile {
     padding: 4px;
     margin-bottom: 16px;
+    flex-direction: row;
   }
 
   .composer-mobile input {
-    padding: 12px 10px;
+    padding: 10px 12px;
     font-size: 15px;
   }
 
   .composer-mobile .composer-add {
-    width: 38px;
-    min-width: 38px;
+    width: 40px;
+    min-width: 40px;
     height: 38px;
     padding: 0;
     border-radius: var(--radius-sm);
@@ -2120,6 +2121,34 @@ input {
 
   .composer-mobile .composer-add svg {
     margin: 0;
+  }
+
+  .mobile-io-card {
+    margin-top: -2px;
+  }
+
+  .mobile-io-btns {
+    display: flex;
+    gap: 8px;
+  }
+
+  .mobile-io-btn {
+    flex: 1;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-inset);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-family: inherit;
+  }
+
+  .mobile-io-btn:hover {
+    background: var(--panel-hover);
+    color: var(--text);
   }
 
   .insight-hidden {

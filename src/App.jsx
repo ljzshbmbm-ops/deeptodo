@@ -1758,6 +1758,21 @@ function App() {
                   )}
                 </div>
               </div>
+
+              {isMobile && (
+                <div className="panel insight-card mobile-io-card">
+                  <div className="panel-body" style={{ padding: '12px 18px' }}>
+                    <div className="mobile-io-btns">
+                      <button className="mobile-io-btn" onClick={exportData}>
+                        导出数据备份
+                      </button>
+                      <button className="mobile-io-btn" onClick={importData}>
+                        导入数据恢复
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </aside>
           </div>
         </div>
