@@ -388,7 +388,32 @@ function TaskRow({
       setPress("armed");
       categoryDragReady.current = true;
 
-      if (reorderable) {
+      // 手机端长按弹出分类移动菜单；桌面端启动拖拽
+      if (isMobile && onMoveToCategory) {
+        const cats = CATEGORIES.filter((c) => c !== taskCategory);
+        if (cats.length) {
+          const menu = document.createElement('div');
+          menu.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:500;background:var(--panel);border-top:1px solid var(--border);padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;';
+          const title = document.createElement('p');
+          title.textContent = '移动到其他分类';
+          title.style.cssText = 'font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;text-align:center;';
+          menu.appendChild(title);
+          cats.forEach((cat) => {
+            const btn = document.createElement('button');
+            btn.textContent = cat;
+            btn.style.cssText = 'width:100%;height:46px;border:1px solid var(--border);border-radius:8px;background:var(--panel-inset);color:var(--text);font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit;';
+            btn.onclick = () => { document.body.removeChild(menu); onMoveToCategory(task.id, taskCategory, cat); };
+            menu.appendChild(btn);
+          });
+          const cancelBtn = document.createElement('button');
+          cancelBtn.textContent = '取消';
+          cancelBtn.style.cssText = 'width:100%;height:46px;border:none;background:transparent;color:var(--text-tertiary);font-size:14px;cursor:pointer;font-family:inherit;';
+          cancelBtn.onclick = () => document.body.removeChild(menu);
+          menu.appendChild(cancelBtn);
+          menu.onclick = (ev) => { if (ev.target === menu) document.body.removeChild(menu); };
+          document.body.appendChild(menu);
+        }
+      } else if (reorderable) {
         dragControls.start(e);
       }
     }, LONG_PRESS_MS);
@@ -653,8 +678,8 @@ function TaskRow({
     let startOffset = 0;
 
     const onStart = (e) => {
-      // 拖拽手柄和按钮不触发滑动
-      if (e.target.closest('.drag-handle, .task-actions button, .task-actions')) return;
+      // 仅拖拽手柄不触发滑动（按钮区域允许滑动以支持右滑恢复）
+      if (e.target.closest('.drag-handle')) return;
       const touch = e.touches[0];
       startX = touch.clientX;
       startOffset = swipeOffset.current;
