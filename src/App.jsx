@@ -284,81 +284,8 @@ function TaskRow({
   const pressOrigin = useRef({ x: 0, y: 0 });
   const categoryDragReady = useRef(false);
 
-  // 手机端左滑手势（直接操作DOM，不触发React渲染）
-  const swipeOffset = useRef(0);
-  const swipeCardRef = useRef(null);
-  const swipeStartX = useRef(0);
-  const swipeStartOffset = useRef(0);
-  const SWIPE_MAX = 220;
-  const SWIPE_THRESHOLD = 50;
-
-  const applySwipe = (offset, animate) => {
-    if (!swipeCardRef.current) return;
-    swipeCardRef.current.style.transform = `translateX(-${offset}px)`;
-    swipeCardRef.current.style.transition = animate ? 'transform 0.2s ease' : 'none';
-  };
-
-  const handleTouchStart = (e) => {
-    swipeStartX.current = e.touches[0].clientX;
-    swipeStartOffset.current = swipeOffset.current;
-    // 开始长按计时
-    if (isMobile && onMoveToCategory) {
-      longPressPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      cardLongPressTimer.current = setTimeout(() => {
-        triggerHaptic();
-        closeSwipe();
-        const cats = CATEGORIES.filter((c) => c !== taskCategory);
-        if (!cats.length) return;
-        const menu = document.createElement('div');
-        menu.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:500;background:var(--panel);border-top:1px solid var(--border);padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;';
-        const title = document.createElement('p');
-        title.textContent = '移动到其他分类';
-        title.style.cssText = 'font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;text-align:center;';
-        menu.appendChild(title);
-        cats.forEach((cat) => {
-          const btn = document.createElement('button');
-          btn.textContent = cat;
-          btn.style.cssText = 'width:100%;height:44px;border:1px solid var(--border);border-radius:8px;background:var(--panel-inset);color:var(--text);font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit;';
-          btn.onclick = () => { document.body.removeChild(menu); onMoveToCategory(task.id, taskCategory, cat); };
-          menu.appendChild(btn);
-        });
-        const cancel = document.createElement('button');
-        cancel.textContent = '取消';
-        cancel.style.cssText = 'width:100%;height:44px;border:none;background:transparent;color:var(--text-tertiary);font-size:14px;cursor:pointer;font-family:inherit;';
-        cancel.onclick = () => document.body.removeChild(menu);
-        menu.appendChild(cancel);
-        menu.onclick = (ev) => { if (ev.target === menu) document.body.removeChild(menu); };
-        document.body.appendChild(menu);
-      }, 600);
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    const dx = swipeStartX.current - e.touches[0].clientX;
-    // 移动超过阈值取消长按
-    if (cardLongPressTimer.current && (Math.abs(dx) > 15 || Math.abs(e.touches[0].clientY - longPressPos.current.y) > 15)) {
-      clearTimeout(cardLongPressTimer.current);
-      cardLongPressTimer.current = null;
-    }
-    const newOffset = Math.max(0, Math.min(SWIPE_MAX, swipeStartOffset.current + dx));
-    swipeOffset.current = newOffset;
-    applySwipe(newOffset, false);
-  };
-
-  const handleTouchEnd = () => {
-    if (cardLongPressTimer.current) {
-      clearTimeout(cardLongPressTimer.current);
-      cardLongPressTimer.current = null;
-    }
-    swipeOffset.current = swipeOffset.current > SWIPE_THRESHOLD ? SWIPE_MAX : 0;
-    applySwipe(swipeOffset.current, true);
-  };
-
-  const closeSwipe = () => {
-    swipeOffset.current = 0;
-    applySwipe(0, true);
-  };
-
+  // 手机端操作面板开关
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   const [pressState, setPressState] = useState("idle");
   const pressStateRef = useRef("idle");
@@ -442,16 +369,12 @@ function TaskRow({
     .join(" ");
 
   // 操作按钮（手机端用于左滑，桌面端正常显示）
-  const doAction = (fn) => {
-    swipeOffset.current = 0;
-    applySwipe(0, true);
-    fn();
-  };
+  const closeActions = () => setActionsOpen(false);
 
   const actionButtons = (
     <div className="task-actions">
       <button className={`action-btn pin-btn ${task.pinned ? "active" : ""}`}
-        onClick={(e) => { e.stopPropagation(); doAction(() => onTogglePin(task.id)); }}
+        onClick={(e) => { e.stopPropagation(); closeActions(); onTogglePin(task.id); }}
         aria-label={task.pinned ? "取消置顶" : "置顶"}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="17" x2="12" y2="22" />
@@ -460,14 +383,14 @@ function TaskRow({
         </svg>
       </button>
       <button className={`action-btn fav-btn ${task.favorite ? "active" : ""}`}
-        onClick={(e) => { e.stopPropagation(); doAction(() => onToggleFavorite(task.id)); }}
+        onClick={(e) => { e.stopPropagation(); closeActions(); onToggleFavorite(task.id); }}
         aria-label={task.favorite ? "取消收藏" : "收藏"}>
         <FiStar fill={task.favorite ? "currentColor" : "none"} />
       </button>
       <button className="action-btn move-btn"
         onClick={(e) => {
           e.stopPropagation();
-          swipeOffset.current = 0; applySwipe(0, true);
+          closeActions();
           if (!onMoveToCategory) return;
           const cats = CATEGORIES.filter((c) => c !== taskCategory);
           if (!cats.length) return;
@@ -498,12 +421,12 @@ function TaskRow({
         </svg>
       </button>
       <button className="action-btn edit-btn"
-        onClick={(e) => { e.stopPropagation(); doAction(() => onStartEdit(task.id)); }}
+        onClick={(e) => { e.stopPropagation(); closeActions(); onStartEdit(task.id); }}
         aria-label="编辑任务">
         <FiEdit2 />
       </button>
       <button className="action-btn delete-btn"
-        onClick={(e) => { e.stopPropagation(); doAction(() => onDelete(task.id)); }}
+        onClick={(e) => { e.stopPropagation(); closeActions(); onDelete(task.id); }}
         aria-label="删除任务">
         <FiTrash2 />
       </button>
@@ -677,60 +600,25 @@ function TaskRow({
     </>
   );
 
-  const swipeContainerRef = useRef(null);
-
-  // 原生事件绑定（绕过React合成事件，确保手机端滑动可靠触发）
-  useEffect(() => {
-    const el = swipeContainerRef.current;
-    if (!el || !isMobile) return;
-    let startX = 0;
-    let startOffset = 0;
-
-    const onStart = (e) => {
-      // 仅拖拽手柄不触发滑动（按钮区域允许滑动以支持右滑恢复）
-      if (e.target.closest('.drag-handle')) return;
-      const touch = e.touches[0];
-      startX = touch.clientX;
-      startOffset = swipeOffset.current;
-    };
-
-    let raf = null;
-    const onMove = (e) => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = null;
-        const touch = e.touches[0];
-        const dx = startX - touch.clientX;
-        const newOffset = Math.max(0, Math.min(220, startOffset + dx));
-        swipeOffset.current = newOffset;
-        applySwipe(newOffset, false);
-      });
-    };
-
-    const onEnd = () => {
-      if (raf) { cancelAnimationFrame(raf); raf = null; }
-      swipeOffset.current = swipeOffset.current > 50 ? 220 : 0;
-      applySwipe(swipeOffset.current, true);
-    };
-
-    el.addEventListener('touchstart', onStart, { passive: false });
-    el.addEventListener('touchmove', onMove, { passive: false });
-    el.addEventListener('touchend', onEnd);
-    return () => {
-      el.removeEventListener('touchstart', onStart);
-      el.removeEventListener('touchmove', onMove);
-      el.removeEventListener('touchend', onEnd);
-    };
-  }, [isMobile]);
-
   const wrapped = isMobile ? (
-    <div className="swipe-container" ref={swipeContainerRef}>
-      <div className="swipe-actions">
+    <div className="task-row-mobile">
+      <div className={`mobile-actions-panel ${actionsOpen ? 'open' : ''}`}>
         {actionButtons}
       </div>
-      <div className="swipe-card" ref={swipeCardRef}>
+      <div className="mobile-task-cover" onClick={() => setActionsOpen(false)}>
         {inner}
       </div>
+      <button
+        className="mobile-more-btn"
+        onClick={(e) => { e.stopPropagation(); setActionsOpen((p) => !p); }}
+        aria-label="更多操作"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="5" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="12" cy="19" r="2" />
+        </svg>
+      </button>
     </div>
   ) : (
     <div className="task-item-desktop">

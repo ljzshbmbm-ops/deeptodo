@@ -2490,3 +2490,55 @@ input {
     max-width: calc(100vw - 32px);
   }
 }
+
+/* ─── 手机端操作面板（点⋮展开）─── */
+.task-row-mobile {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+.mobile-actions-panel {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  z-index: 0;
+}
+.mobile-actions-panel .task-actions {
+  opacity: 1;
+}
+.mobile-task-cover {
+  position: relative;
+  z-index: 1;
+  background: var(--bg);
+  border-radius: var(--radius-md);
+  transition: transform 0.25s ease;
+}
+.mobile-actions-panel.open + .mobile-task-cover {
+  transform: translateX(-200px);
+}
+.mobile-more-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.mobile-actions-panel.open ~ .mobile-more-btn {
+  opacity: 0;
+  pointer-events: none;
+}
