@@ -629,6 +629,8 @@ function App() {
   const [celebrateOpen, setCelebrateOpen] = useState(false);
   const [filterMode, setFilterMode] = useState(null); // null | 'active' | 'completed'
   const [showInsight, setShowInsight] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [showMobileAdd, setShowMobileAdd] = useState(false);
 
   const [todos, setTodos] = useState(loadTodos);
   const [seconds, setSeconds] = useState(1500);
@@ -1318,42 +1320,75 @@ function App() {
 
         <div className="main-scroll" ref={mainScrollRef}>
           <header className="page-header">
-            <div className="page-header-main">
-              <div className="breadcrumb">
-                <span>工作区</span>
-                <FiChevronRight />
-                <span>{category}</span>
+            {isMobile ? (
+              /* ── 手机端精简头部 ── */
+              <div className="mobile-page-header">
+                <div className="mobile-page-header-left">
+                  <h1 className="mobile-category-title">{category}</h1>
+                  <span className="mobile-task-count">{listCount} 项</span>
+                  {filterMode && (
+                    <button className="filter-clear-btn" onClick={() => setFilterMode(null)}>
+                      清除 <FiX />
+                    </button>
+                  )}
+                </div>
+                <div className="mobile-page-header-right">
+                  <button
+                    className={`icon-btn ${showMobileSearch ? 'active' : ''}`}
+                    onClick={() => { setShowMobileSearch((p) => !p); setShowMobileAdd(false); }}
+                    aria-label="搜索"
+                  >
+                    <FiSearch />
+                  </button>
+                  <button
+                    className="icon-btn"
+                    onClick={() => setShowInsight((p) => !p)}
+                    aria-label="数据面板"
+                  >
+                    <FiBarChart2 />
+                  </button>
+                </div>
               </div>
-              <h1 className="page-title">{category}</h1>
-              <p className="page-desc">{categoryMeta.desc}</p>
-            </div>
-
-            <div className="header-meta">
-              <ProgressRing value={progress} />
-              <div className="header-stats-inline">
-                <button
-                  className={`inline-stat ${filterMode === 'active' ? 'filter-active' : ''}`}
-                  onClick={() => setFilterMode(filterMode === 'active' ? null : 'active')}
-                  title="只看未完成"
-                >
-                  <strong>{listCount}</strong>
-                  <span>{isTodayView ? "今日" : "当前"}</span>
-                </button>
-                <button
-                  className={`inline-stat ${filterMode === 'completed' ? 'filter-active' : ''}`}
-                  onClick={() => setFilterMode(filterMode === 'completed' ? null : 'completed')}
-                  title="只看已完成"
-                >
-                  <strong>{categoryDone}</strong>
-                  <span>已完成</span>
-                </button>
-              </div>
-              {filterMode && (
-                <button className="filter-clear-btn" onClick={() => setFilterMode(null)}>
-                  清除筛选 <FiX />
-                </button>
-              )}
-            </div>
+            ) : (
+              /* ── 桌面端头部（不变）── */
+              <>
+                <div className="page-header-main">
+                  <div className="breadcrumb">
+                    <span>工作区</span>
+                    <FiChevronRight />
+                    <span>{category}</span>
+                  </div>
+                  <h1 className="page-title">{category}</h1>
+                  <p className="page-desc">{categoryMeta.desc}</p>
+                </div>
+                <div className="header-meta">
+                  <ProgressRing value={progress} />
+                  <div className="header-stats-inline">
+                    <button
+                      className={`inline-stat ${filterMode === 'active' ? 'filter-active' : ''}`}
+                      onClick={() => setFilterMode(filterMode === 'active' ? null : 'active')}
+                      title="只看未完成"
+                    >
+                      <strong>{listCount}</strong>
+                      <span>{isTodayView ? "今日" : "当前"}</span>
+                    </button>
+                    <button
+                      className={`inline-stat ${filterMode === 'completed' ? 'filter-active' : ''}`}
+                      onClick={() => setFilterMode(filterMode === 'completed' ? null : 'completed')}
+                      title="只看已完成"
+                    >
+                      <strong>{categoryDone}</strong>
+                      <span>已完成</span>
+                    </button>
+                  </div>
+                  {filterMode && (
+                    <button className="filter-clear-btn" onClick={() => setFilterMode(null)}>
+                      清除筛选 <FiX />
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
 
             <div className="topbar-actions">
               <button
@@ -1380,35 +1415,47 @@ function App() {
             </div>
           </header>
 
-          <div className="search-bar">
-            <FiSearch />
-            <input
-              type="search"
-              placeholder="搜索任务标题或备注…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button
-                className="search-clear"
-                onClick={() => setSearchQuery("")}
-                aria-label="清除搜索"
-              >
-                <FiX />
-              </button>
-            )}
-          </div>
+          {(!isMobile || showMobileSearch) && (
+            <div className={`search-bar ${isMobile ? 'search-bar-mobile' : ''}`}>
+              <FiSearch />
+              <input
+                type="search"
+                placeholder="搜索任务标题或备注…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus={isMobile && showMobileSearch}
+              />
+              {searchQuery && (
+                <button
+                  className="search-clear"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="清除搜索"
+                >
+                  <FiX />
+                </button>
+              )}
+              {isMobile && (
+                <button
+                  className="search-clear"
+                  onClick={() => { setShowMobileSearch(false); setSearchQuery(""); }}
+                  aria-label="关闭搜索"
+                >
+                  <FiX />
+                </button>
+              )}
+            </div>
+          )}
 
           {!isSearching && (
-            <motion.div layout className="composer">
+            <motion.div layout className={`composer ${isMobile ? 'composer-mobile' : ''}`}>
               <input
                 ref={inputRef}
                 type="text"
-                placeholder={
+                placeholder={isMobile ? "添加任务…" : (
                   isTodayView
                     ? "添加今日任务（保存至 Personal · 截止今天）…"
                     : `在 ${category} 中添加任务…`
-                }
+                )}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -1421,26 +1468,9 @@ function App() {
                 onClick={addTask}
               >
                 <FiPlus />
-                添加
+                {!isMobile && "添加"}
               </motion.button>
             </motion.div>
-          )}
-
-          {isMobile && (
-            <div className="mobile-quick-actions">
-              <button
-                className={`mobile-insight-toggle ${showInsight ? 'active' : ''}`}
-                onClick={() => setShowInsight((p) => !p)}
-              >
-                <FiBarChart2 /> {showInsight ? "收起面板" : "数据面板"}
-              </button>
-              <button className="mobile-export-btn" onClick={exportData}>
-                导出
-              </button>
-              <button className="mobile-import-btn" onClick={importData}>
-                导入
-              </button>
-            </div>
           )}
 
           <div className="workspace-grid">

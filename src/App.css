@@ -2052,6 +2052,76 @@ input {
     max-width: 100%;
   }
 
+  /* ── 手机端精简头部 ── */
+  .mobile-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .mobile-page-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-category-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+  }
+
+  .mobile-task-count {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    background: var(--panel-inset);
+    padding: 3px 10px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+
+  .mobile-page-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* 手机端搜索框 */
+  .search-bar-mobile {
+    margin-top: -4px;
+    margin-bottom: 14px;
+  }
+
+  /* 手机端紧凑 Composer */
+  .composer-mobile {
+    padding: 4px;
+    margin-bottom: 16px;
+  }
+
+  .composer-mobile input {
+    padding: 12px 10px;
+    font-size: 15px;
+  }
+
+  .composer-mobile .composer-add {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+  }
+
+  .composer-mobile .composer-add svg {
+    margin: 0;
+  }
+
   .insight-hidden {
     display: none !important;
   }
