@@ -598,6 +598,7 @@ function App() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const [expandedId, setExpandedId] = useState(null);
+  const [expandAll, setExpandAll] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [dropCategory, setDropCategory] = useState(null);
@@ -613,6 +614,7 @@ function App() {
   const pomodoroFiredRef = useRef(false);
   const editInputRef = useRef(null);
   const undoDeleteRef = useRef(null);
+  const [deletedHistory, setDeletedHistory] = useState([]);
 
   const isTodayView = category === VIEW_TODAY;
 
@@ -738,9 +740,21 @@ function App() {
 
   useEffect(() => {
     const down = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      // Ctrl+K / Ctrl+Shift+K 打开命令面板
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
         setCommandOpen((prev) => !prev);
+        return;
+      }
+      // 按 / 快速打开命令面板（不在输入框/文本框内时）
+      if (
+        e.key === "/" &&
+        !commandOpen &&
+        !["INPUT", "TEXTAREA"].includes(e.target.tagName) &&
+        !e.target.isContentEditable
+      ) {
+        e.preventDefault();
+        setCommandOpen(true);
       }
     };
     window.addEventListener("keydown", down);
@@ -764,6 +778,16 @@ function App() {
 
   const cancelEdit = () => {
     setEditingId(null);
+  };
+
+  const restoreFromHistory = (historyEntry) => {
+    updateCategory(historyEntry.cat, (list) =>
+      sortTasks([...list, historyEntry.task])
+    );
+    setDeletedHistory((prev) =>
+      prev.filter((h) => h.task.id !== historyEntry.task.id)
+    );
+    showToast("已恢复任务");
   };
 
   const addTask = () => {
@@ -820,7 +844,15 @@ function App() {
       timer: null,
     };
 
-    // 4.5 秒后真删
+    // 记录到删除历史
+    const historyEntry = {
+      task: taskToDelete,
+      cat: targetCat,
+      deletedAt: Date.now(),
+    };
+    setDeletedHistory((prev) => [historyEntry, ...prev].slice(0, 20));
+
+    // 4.5 秒后真删（仅清除撤销引用）
     undoDeleteRef.current.timer = setTimeout(() => {
       undoDeleteRef.current = null;
     }, 4500);
@@ -831,11 +863,15 @@ function App() {
         // 清除定时器
         if (undoDeleteRef.current) {
           clearTimeout(undoDeleteRef.current.timer);
-          const { task, cat: restoreCat } = undoDeleteRef.current;
+          const { task: restoredTask, cat: restoreCat } = undoDeleteRef.current;
           undoDeleteRef.current = null;
           // 恢复任务
           updateCategory(restoreCat, (list) =>
-            sortTasks([...list, task])
+            sortTasks([...list, restoredTask])
+          );
+          // 从删除历史移除
+          setDeletedHistory((prev) =>
+            prev.filter((h) => h.task.id !== restoredTask.id)
           );
         }
         dismissToast();
@@ -1084,7 +1120,7 @@ function App() {
 
         <div className="sidebar-bottom">
           <p className="slogan-quote">「专注当下，完成重要的事。」</p>
-          <p className="slogan-sub">数据已自动保存至本地 · ⌘K 命令面板</p>
+          <p className="slogan-sub">数据已自动保存至本地 · Ctrl+K 命令面板</p>
         </div>
       </aside>
 
@@ -1172,10 +1208,10 @@ function App() {
                 className="icon-btn grid-menu-btn"
                 onClick={() => setCommandOpen(true)}
                 aria-label="打开命令面板"
-                title="命令面板 ⌘K"
+                title="命令面板 Ctrl+K"
               >
                 <GridMenuIcon />
-                <span className="grid-menu-kbd">⌘K</span>
+                <span className="grid-menu-kbd">CtrlK</span>
               </button>
             </div>
           </header>
@@ -1233,11 +1269,26 @@ function App() {
                   <CategoryIcon />
                   {isSearching ? "搜索结果" : "任务列表"}
                 </h3>
-                <span className="panel-badge">
-                  {isSearching
-                    ? `${displayList.length} 条匹配`
-                    : `${listCount} 项`}
-                </span>
+                <div className="panel-header-actions">
+                  {!isSearching && listCount > 0 && (
+                    <button
+                      className="expand-all-btn"
+                      onClick={() => {
+                        setExpandAll((prev) => !prev);
+                        setExpandedId(null);
+                      }}
+                      title={expandAll ? "收起全部备注" : "展开全部备注"}
+                    >
+                      {expandAll ? "收起全部" : "展开全部"}
+                      {expandAll ? <FiChevronUp /> : <FiChevronDown />}
+                    </button>
+                  )}
+                  <span className="panel-badge">
+                    {isSearching
+                      ? `${displayList.length} 条匹配`
+                      : `${listCount} 项`}
+                  </span>
+                </div>
               </div>
 
               <div className="panel-body">
@@ -1270,7 +1321,7 @@ function App() {
                           isMobile={isMobile}
                           editing={editingId === task.id}
                           editInputRef={editInputRef}
-                          expanded={expandedId === task.id}
+                          expanded={expandAll || expandedId === task.id}
                             onToggleExpand={(id) =>
                               setExpandedId((prev) =>
                                 prev === id ? null : id
@@ -1446,6 +1497,46 @@ function App() {
                       <li key={tip}>{tip}</li>
                     ))}
                   </ul>
+                </div>
+              </div>
+
+              <div className="panel insight-card">
+                <div className="panel-header">
+                  <h3>最近活动</h3>
+                </div>
+                <div className="panel-body">
+                  {completedCount > 0 ? (
+                    <p className="activity-summary">
+                      已完成 <strong>{completedCount}</strong> 项任务
+                      {totalCount > 0 && (
+                        <span>（共 {totalCount} 项）</span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="activity-empty">暂无已完成任务</p>
+                  )}
+
+                  {deletedHistory.length > 0 && (
+                    <div className="deleted-section">
+                      <p className="deleted-title">
+                        最近删除 · {deletedHistory.length} 条
+                      </p>
+                      <ul className="deleted-list">
+                        {deletedHistory.slice(0, 5).map((h) => (
+                          <li key={`${h.task.id}-${h.deletedAt}`} className="deleted-item">
+                            <span className="deleted-text">{h.task.text}</span>
+                            <button
+                              className="deleted-restore-btn"
+                              onClick={() => restoreFromHistory(h)}
+                              title="恢复任务"
+                            >
+                              <FiRotateCcw />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
             </aside>
