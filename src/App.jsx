@@ -640,25 +640,84 @@ function TaskRow({
     </>
   );
 
+  const swipeContainerRef = useRef(null);
+
+  // 原生事件绑定（绕过React合成事件，确保手机端可靠触发）
+  useEffect(() => {
+    const el = swipeContainerRef.current;
+    if (!el || !isMobile) return;
+    let timer = null;
+    let pos = { x: 0, y: 0 };
+    let startX = 0;
+    let startOffset = 0;
+
+    const onStart = (e) => {
+      const touch = e.touches[0];
+      startX = touch.clientX;
+      startOffset = swipeOffset.current;
+      pos = { x: touch.clientX, y: touch.clientY };
+      timer = setTimeout(() => {
+        triggerHaptic();
+        closeSwipe();
+        const cats = CATEGORIES.filter((c) => c !== taskCategory);
+        if (!cats.length || !onMoveToCategory) return;
+        const menu = document.createElement('div');
+        menu.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:500;background:var(--panel);border-top:1px solid var(--border);padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;';
+        const title = document.createElement('p');
+        title.textContent = '移动到其他分类';
+        title.style.cssText = 'font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;text-align:center;';
+        menu.appendChild(title);
+        cats.forEach((cat) => {
+          const btn = document.createElement('button');
+          btn.textContent = cat;
+          btn.style.cssText = 'width:100%;height:44px;border:1px solid var(--border);border-radius:8px;background:var(--panel-inset);color:var(--text);font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit;';
+          btn.onclick = () => { document.body.removeChild(menu); onMoveToCategory(task.id, taskCategory, cat); };
+          menu.appendChild(btn);
+        });
+        const cancel = document.createElement('button');
+        cancel.textContent = '取消';
+        cancel.style.cssText = 'width:100%;height:44px;border:none;background:transparent;color:var(--text-tertiary);font-size:14px;cursor:pointer;font-family:inherit;';
+        cancel.onclick = () => document.body.removeChild(menu);
+        menu.appendChild(cancel);
+        menu.onclick = (ev) => { if (ev.target === menu) document.body.removeChild(menu); };
+        document.body.appendChild(menu);
+      }, 600);
+    };
+
+    const onMove = (e) => {
+      const touch = e.touches[0];
+      const dx = startX - touch.clientX;
+      if (timer && (Math.abs(dx) > 15 || Math.abs(touch.clientY - pos.y) > 15)) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      const newOffset = Math.max(0, Math.min(180, startOffset + dx));
+      swipeOffset.current = newOffset;
+      applySwipe(newOffset, false);
+    };
+
+    const onEnd = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      swipeOffset.current = swipeOffset.current > 50 ? 180 : 0;
+      applySwipe(swipeOffset.current, true);
+    };
+
+    el.addEventListener('touchstart', onStart, { passive: false });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+    };
+  }, [isMobile, taskCategory, task.id, onMoveToCategory]);
+
   const wrapped = isMobile ? (
-    <div
-      className="swipe-container"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      <div
-        className="swipe-actions"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+    <div className="swipe-container" ref={swipeContainerRef}>
+      <div className="swipe-actions">
         {actionButtons}
       </div>
-      <div
-        className="swipe-card"
-        ref={swipeCardRef}
-      >
+      <div className="swipe-card" ref={swipeCardRef}>
         {inner}
       </div>
     </div>
