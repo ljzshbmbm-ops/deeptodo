@@ -2305,7 +2305,10 @@ input {
   }
 
   .drag-handle {
-    display: none;
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+    touch-action: none;
   }
 
   .priority-tag {
