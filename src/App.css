@@ -2116,9 +2116,20 @@ input {
   }
 
   .task-card {
-    padding: 16px 14px;
-    gap: 14px;
+    padding: 14px 10px;
+    gap: 8px;
     border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .task-main {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .task-meta-row {
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
   .check {
@@ -2140,29 +2151,40 @@ input {
 
   .task-text {
     font-size: 17px;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   .task-actions {
     opacity: 1;
+    gap: 0;
   }
 
   .action-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 16px;
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
   }
 
   .delete-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 16px;
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
   }
 
   .drag-handle {
-    width: 28px;
-    height: 28px;
-    font-size: 14px;
-    touch-action: none;
+    display: none;
+  }
+
+  .priority-tag {
+    min-width: 28px;
+    padding: 3px 7px;
+    font-size: 11px;
+  }
+
+  .task-card {
+    padding: 12px 8px;
+    gap: 6px;
   }
 
   .task-item.long-press-pending .task-card {
