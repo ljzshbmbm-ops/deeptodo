@@ -273,6 +273,12 @@ function TaskRow({
   const categoryDragReady = useRef(false);
 
   const [pressState, setPressState] = useState("idle");
+  const pressStateRef = useRef("idle");
+
+  const setPress = (state) => {
+    pressStateRef.current = state;
+    setPressState(state);
+  };
 
   const cancelLongPressTimer = () => {
     if (longPressTimer.current) {
@@ -286,12 +292,12 @@ function TaskRow({
 
     e.stopPropagation();
     pressOrigin.current = { x: e.clientX, y: e.clientY };
-    setPressState("pending");
+    setPress("pending");
 
     longPressTimer.current = setTimeout(() => {
       longPressTimer.current = null;
       triggerHaptic();
-      setPressState("armed");
+      setPress("armed");
       categoryDragReady.current = true;
 
       if (reorderable) {
@@ -311,14 +317,14 @@ function TaskRow({
       Math.abs(dy) > LONG_PRESS_MOVE_THRESHOLD
     ) {
       cancelLongPressTimer();
-      setPressState("idle");
+      setPress("idle");
     }
   };
 
   const handleHandlePointerUp = () => {
     cancelLongPressTimer();
-    if (pressState === "pending") {
-      setPressState("idle");
+    if (pressStateRef.current === "pending") {
+      setPress("idle");
       categoryDragReady.current = false;
     }
   };
@@ -333,7 +339,7 @@ function TaskRow({
 
   const handleNativeDragEnd = (e) => {
     categoryDragReady.current = false;
-    setPressState("idle");
+    setPress("idle");
     onDragEnd(e);
   };
 
@@ -495,7 +501,7 @@ function TaskRow({
       }}
       className={taskItemClass}
       onDragEnd={() => {
-        setPressState("idle");
+        setPress("idle");
         categoryDragReady.current = false;
       }}
     >
@@ -517,6 +523,7 @@ function App() {
   const [input, setInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [commandOpen, setCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [dropCategory, setDropCategory] = useState(null);
@@ -584,6 +591,16 @@ function App() {
     [todos]
   );
 
+  const filteredCommands = useMemo(() => {
+    const q = commandQuery.trim().toLowerCase();
+    const all = [
+      { label: "打开今日视图", cat: VIEW_TODAY },
+      ...CATEGORIES.map((c) => ({ label: `打开 ${c}`, cat: c })),
+    ];
+    if (!q) return all;
+    return all.filter((c) => c.label.toLowerCase().includes(q));
+  }, [commandQuery]);
+
   const updateCategory = (cat, updater) => {
     setTodos((prev) => ({
       ...prev,
@@ -638,6 +655,10 @@ function App() {
     const t = setTimeout(() => setToast(null), 4500);
     return () => clearTimeout(t);
   }, [toast]);
+
+  useEffect(() => {
+    if (!commandOpen) setCommandQuery("");
+  }, [commandOpen]);
 
   useEffect(() => {
     const down = (e) => {
@@ -1317,30 +1338,42 @@ function App() {
             >
               <div className="command-search">
                 <FiSearch />
-                <input placeholder="搜索或跳转工作区…" autoFocus />
+                <input
+                  placeholder="搜索或跳转工作区…"
+                  autoFocus
+                  value={commandQuery}
+                  onChange={(e) => setCommandQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setCommandOpen(false);
+                    } else if (
+                      e.key === "Enter" &&
+                      filteredCommands.length > 0
+                    ) {
+                      switchCategory(filteredCommands[0].cat);
+                      setCommandOpen(false);
+                    }
+                  }}
+                />
               </div>
               <div className="command-items">
-                <button
-                  onClick={() => {
-                    switchCategory(VIEW_TODAY);
-                    setCommandOpen(false);
-                  }}
-                >
-                  打开今日视图
-                  <span>↵</span>
-                </button>
-                {CATEGORIES.map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => {
-                      switchCategory(item);
-                      setCommandOpen(false);
-                    }}
-                  >
-                    打开 {item}
-                    <span>↵</span>
-                  </button>
-                ))}
+                {filteredCommands.length === 0 ? (
+                  <div className="command-empty">未找到匹配的工作区</div>
+                ) : (
+                  filteredCommands.map((item, idx) => (
+                    <button
+                      key={item.cat}
+                      onClick={() => {
+                        switchCategory(item.cat);
+                        setCommandOpen(false);
+                      }}
+                      className={idx === 0 ? "command-first" : ""}
+                    >
+                      {item.label}
+                      <span>{idx === 0 ? "↵" : ""}</span>
+                    </button>
+                  ))
+                )}
               </div>
             </motion.div>
           </motion.div>

@@ -1491,6 +1491,17 @@ input {
   gap: 2px;
 }
 
+.command-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.command-first {
+  background: var(--accent-muted);
+}
+
 .command-items button {
   display: flex;
   align-items: center;
