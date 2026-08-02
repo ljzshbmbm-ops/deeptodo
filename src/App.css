@@ -787,6 +787,10 @@ input {
   align-items: start;
 }
 
+.workspace-grid.workspace-full {
+  grid-template-columns: 1fr;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -861,6 +865,7 @@ input {
 
 .tasks-panel .panel-body {
   padding: 12px;
+  padding-bottom: 32px;
 }
 
 .task-list {

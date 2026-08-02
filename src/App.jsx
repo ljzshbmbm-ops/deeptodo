@@ -306,27 +306,25 @@ function TaskRow({
   };
 
   const handleHandlePointerDown = (e) => {
-    if (!isMobile) return;
-
     e.stopPropagation();
     pressOrigin.current = { x: e.clientX, y: e.clientY };
     setPress("pending");
 
     longPressTimer.current = setTimeout(() => {
       longPressTimer.current = null;
-      triggerHaptic();
+      if (isMobile) triggerHaptic();
       setPress("armed");
       categoryDragReady.current = true;
 
-      // 手机端和桌面端都启动拖拽排序
-      if (reorderable) {
+      // 手机端：手动启动 framer-motion 拖拽排序
+      if (isMobile && reorderable) {
         dragControls.start(e);
       }
     }, LONG_PRESS_MS);
   };
 
   const handleHandlePointerMove = (e) => {
-    if (!isMobile || !longPressTimer.current) return;
+    if (!longPressTimer.current) return;
 
     const dx = e.clientX - pressOrigin.current.x;
     const dy = e.clientY - pressOrigin.current.y;
@@ -349,10 +347,12 @@ function TaskRow({
   };
 
   const handleNativeDragStart = (e) => {
-    if (isMobile && !categoryDragReady.current) {
+    // 手机端不启用原生拖拽跨分类
+    if (isMobile) {
       e.preventDefault();
       return;
     }
+    // 桌面端：原生拖拽 → 跨分类移动
     onDragStart(e, task, taskCategory);
   };
 
@@ -416,6 +416,13 @@ function TaskRow({
     <>
       <div
         className={`task-card ${expanded ? "expanded" : ""} ${fullExpand ? "full-expand" : ""}`}
+        onContextMenu={(e) => {
+          // 桌面端：右键拖拽排序
+          if (!isMobile && reorderable) {
+            e.preventDefault();
+            dragControls.start(e);
+          }
+        }}
         onClick={(e) => {
           if (
             editing ||
@@ -444,8 +451,8 @@ function TaskRow({
           className="drag-handle"
           title={
             isMobile
-              ? "长按 0.5 秒拖动排序或移动分类"
-              : "拖拽到其他分类"
+              ? "长按 0.5 秒拖动排序"
+              : "拖拽到其他分类 · 右键拖拽排序"
           }
           draggable={!isMobile}
           onPointerDown={handleHandlePointerDown}
@@ -608,7 +615,7 @@ function TaskRow({
   return (
     <Reorder.Item
       value={task}
-      dragListener={!isMobile}
+      dragListener={false}
       dragControls={dragControls}
       whileDrag={{
         scale: isMobile ? 1.04 : 1.01,
@@ -718,6 +725,10 @@ function App() {
     }
     return sortedCategoryTodos.filter((t) => t.completed).length;
   }, [isTodayView, todayTaskList, sortedCategoryTodos]);
+
+  const categoryTotal = listCount + categoryDone;
+  const categoryProgress =
+    categoryTotal === 0 ? 0 : Math.round((categoryDone / categoryTotal) * 100);
 
   const todayStats = useMemo(() => getTodayStats(todos), [todos]);
   const smartSuggestions = useMemo(
@@ -1414,7 +1425,7 @@ function App() {
                   <p className="page-desc">{categoryMeta.desc}</p>
                 </div>
                 <div className="header-meta">
-                  <ProgressRing value={progress} />
+                  <ProgressRing value={categoryProgress} />
                   <div className="header-stats-inline">
                     <button
                       className={`inline-stat ${filterMode === 'active' ? 'filter-active' : ''}`}
@@ -1525,7 +1536,7 @@ function App() {
             </motion.div>
           )}
 
-          <div className="workspace-grid">
+          <div className={`workspace-grid ${!isTodayView ? 'workspace-full' : ''}`}>
             <section className="panel tasks-panel">
               <div className="panel-header">
                 <h3>
@@ -1669,6 +1680,7 @@ function App() {
               </div>
             </section>
 
+            {isTodayView && (
             <aside className={`insight-column ${isMobile && !showInsight ? 'insight-hidden' : ''}`}>
               <div className="panel insight-card">
                 <div className="panel-header">
@@ -1710,27 +1722,27 @@ function App() {
                 <div className="panel-body">
                   <div className="analytics-grid">
                     <div className="analytics-cell">
-                      <strong>{totalCount}</strong>
+                      <strong>{categoryTotal}</strong>
                       <span>全部</span>
                     </div>
                     <div className="analytics-cell">
-                      <strong>{completedCount}</strong>
+                      <strong>{categoryDone}</strong>
                       <span>完成</span>
                     </div>
                     <div className="analytics-cell">
-                      <strong>{progress}%</strong>
+                      <strong>{categoryProgress}%</strong>
                       <span>进度</span>
                     </div>
                   </div>
                   <div className="progress-section">
                     <div className="progress-header">
                       <span>完成率</span>
-                      <span>{progress}%</span>
+                      <span>{categoryProgress}%</span>
                     </div>
                     <div className="progress-bar">
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${progress}%` }}
+                        animate={{ width: `${categoryProgress}%` }}
                         transition={{ duration: 0.4, ease: "easeOut" }}
                         className="progress-fill"
                       />
@@ -1769,9 +1781,9 @@ function App() {
                 </div>
                 <div className="panel-body">
                   <p className="activity-summary">
-                    已完成 <strong>{completedCount}</strong> 项
-                    {totalCount > 0 && (
-                      <span>（共 {totalCount} 项）</span>
+                    已完成 <strong>{categoryDone}</strong> 项
+                    {categoryTotal > 0 && (
+                      <span>（共 {categoryTotal} 项）</span>
                     )}
                   </p>
 
@@ -1812,13 +1824,14 @@ function App() {
                     </div>
                   )}
 
-                  {completedCount === 0 && deletedHistory.length === 0 && (
+                  {categoryDone === 0 && deletedHistory.length === 0 && (
                     <p className="activity-empty">暂无活动记录</p>
                   )}
                 </div>
               </div>
 
             </aside>
+            )}
           </div>
         </div>
       </main>
