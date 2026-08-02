@@ -1892,14 +1892,21 @@ input {
   background: var(--bg);
 }
 
-.task-item-desktop {
-  display: flex;
-  align-items: flex-start;
+/* ─── 桌面端：悬停显示操作按钮 ─── */
+
+@media (min-width: 769px) {
+  .task-card .task-actions {
+    margin-top: 0;
+    flex-shrink: 0;
+  }
 }
 
-.task-item-desktop .task-actions {
-  margin-top: 0;
-  flex-shrink: 0;
+/* ─── 手机端：隐藏卡片内操作按钮（左滑区域已显示） ─── */
+
+@media (max-width: 768px) {
+  .task-card > .task-actions {
+    display: none;
+  }
 }
 
 /* ─── Responsive ─── */

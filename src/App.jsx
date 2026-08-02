@@ -545,6 +545,8 @@ function TaskRow({
           </div>
         </div>
 
+        {actionButtons}
+
       </div>
 
       <AnimatePresence>
@@ -596,10 +598,7 @@ function TaskRow({
       </div>
     </div>
   ) : (
-    <div className="task-item-desktop">
-      {inner}
-      {actionButtons}
-    </div>
+    inner
   );
 
   if (!reorderable) {
